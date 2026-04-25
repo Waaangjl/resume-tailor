@@ -1,5 +1,7 @@
 # resume-tailor
 
+[中文说明](README.zh.md)
+
 **AI-powered LaTeX resume tailoring and cover letter generator for job applications.**
 
 Paste a job description → get a tailored `.tex` resume + human-sounding cover letter in under 2 minutes. Runs locally with no server. Uses [Claude Code](https://claude.ai/code) (`claude -p`) by default, or any OpenAI/Ollama/LiteLLM-compatible model.
