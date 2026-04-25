@@ -249,10 +249,12 @@ examples:
     if not args.no_diff:
         diff = build.make_diff(resume_tex, tailored_tex)
         if diff:
+            changed = sum(1 for ln in diff.splitlines() if ln.startswith(("+ ", "- ")))
             diff_path = out_dir / "resume.diff"
             diff_path.write_text(diff, encoding="utf-8")
-            changed = sum(1 for ln in diff.splitlines() if ln.startswith(("+ ", "- ")))
-            print(f"  diff   : resume.diff  ({changed} lines changed)")
+            html_path = out_dir / "resume_changes.html"
+            html_path.write_text(build.make_html_diff(resume_tex, tailored_tex), encoding="utf-8")
+            print(f"  diff   : resume_changes.html  ({changed} lines changed)")
 
     if not args.no_cover_letter:
         style_guide = get_style_guide(args.model)

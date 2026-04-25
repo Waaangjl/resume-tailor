@@ -9,7 +9,7 @@ import pytest
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from build import JDMeta, _slugify, make_diff, output_folder, strip_tex_fence
+from build import JDMeta, _slugify, _tex_to_plain, make_diff, make_html_diff, output_folder, strip_tex_fence
 
 
 class TestSlugify:
@@ -78,6 +78,55 @@ class TestStripTexFence:
         tex = "Some preamble\n%---\n\\documentclass{article}\n\\end{document}"
         result = strip_tex_fence(tex)
         assert result.startswith("%---")
+
+
+class TestTexToPlain:
+    def test_strips_resumeitem(self):
+        tex = r"\resumeItem{Built a data pipeline for 50K events/sec}"
+        result = _tex_to_plain(tex)
+        assert "Built a data pipeline" in result
+        assert "\\resumeItem" not in result
+
+    def test_formats_section_heading(self):
+        result = _tex_to_plain(r"\section{Experience}")
+        assert "=== Experience ===" in result
+
+    def test_formats_subheading(self):
+        tex = r"\resumeSubheading{Google}{2023}{SWE Intern}{NYC}"
+        result = _tex_to_plain(tex)
+        assert "Google" in result
+        assert "SWE Intern" in result
+
+    def test_removes_latex_comments(self):
+        result = _tex_to_plain("% this is a comment\nreal content")
+        assert "this is a comment" not in result
+        assert "real content" in result
+
+    def test_removes_bare_commands(self):
+        result = _tex_to_plain(r"\documentclass[11pt]{article}")
+        assert "\\documentclass" not in result
+
+
+class TestMakeHtmlDiff:
+    def test_returns_html_string(self):
+        html = make_html_diff("line one\n", "line two\n")
+        assert "<html" in html.lower()
+        assert "</html>" in html.lower()
+
+    def test_contains_both_descriptions(self):
+        html = make_html_diff("old\n", "new\n")
+        assert "Original resume" in html
+        assert "Tailored resume" in html
+
+    def test_changed_word_appears_in_output(self):
+        html = make_html_diff("build a pipeline\n", "build a platform\n")
+        # both the old and new words should appear somewhere in the diff
+        assert "pipeline" in html
+        assert "platform" in html
+
+    def test_injects_custom_css(self):
+        html = make_html_diff("a\n", "b\n")
+        assert "BlinkMacSystemFont" in html
 
 
 class TestMakeDiff:

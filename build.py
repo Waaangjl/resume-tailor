@@ -124,3 +124,72 @@ def make_diff(original: str, modified: str) -> str:
         tofile="tailored.tex",
         n=2,
     ))
+
+
+# ---------------------------------------------------------------------------
+# Human-readable HTML diff
+# ---------------------------------------------------------------------------
+
+def _tex_to_plain(tex: str) -> str:
+    """Strip LaTeX commands, return readable plain text for diffing."""
+    tex = re.sub(r'%[^\n]*', '', tex)                                   # comments
+    tex = re.sub(r'\\section\{([^}]+)\}', r'\n=== \1 ===\n', tex)      # section headings
+    tex = re.sub(                                                         # job/edu subheadings
+        r'\\resumeSubheading\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}\{[^}]*\}',
+        r'\n\1 — \3 (\2)', tex,
+    )
+    tex = re.sub(                                                         # project headings
+        r'\\resumeProjectHeading\{([^}]*)\}\{[^}]*\}',
+        r'\n\1', tex,
+    )
+    tex = re.sub(r'\\resumeItem\{([^}]+)\}', r'  • \1', tex)            # bullets
+    tex = re.sub(r'\\[a-zA-Z]+\*?\{([^}]*)\}', r'\1', tex)             # other {content} cmds
+    tex = re.sub(r'\\[a-zA-Z@]+\*?', '', tex)                           # bare commands
+    tex = re.sub(r'[{}$&#^_~]', '', tex)                                # special chars
+    tex = re.sub(r'\n{3,}', '\n\n', tex)
+    tex = re.sub(r'[ \t]+', ' ', tex)
+    return tex.strip()
+
+
+_HTML_EXTRA_CSS = """
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         font-size: 14px; background: #fafafa; margin: 0; padding: 24px; }
+  h2   { font-size: 15px; color: #333; margin: 0 0 16px; }
+  p    { color: #666; font-size: 13px; margin: 0 0 20px; }
+  table.diff { border-collapse: collapse; width: 100%; background: #fff;
+               border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden;
+               box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  td   { padding: 3px 10px; vertical-align: top; white-space: pre-wrap;
+         word-break: break-word; font-family: "SF Mono", Consolas, monospace;
+         font-size: 12.5px; border: 1px solid #f0f0f0; }
+  td.diff_header { background: #f5f5f5; color: #888; font-size: 11px;
+                   text-align: right; width: 36px; padding: 3px 6px; }
+  th   { background: #f0f0f0; padding: 6px 10px; font-size: 12px;
+         text-align: left; color: #555; }
+  span.diff_add  { background: #d4f0d4; }
+  span.diff_chg  { background: #fff0b3; }
+  span.diff_sub  { background: #ffd4d4; }
+  td.diff_add    { background: #f0fff0; }
+  td.diff_chg    { background: #fffff0; }
+  td.diff_sub    { background: #fff0f0; }
+  td.diff_next   { background: #e8e8e8; }
+</style>
+"""
+
+
+def make_html_diff(original: str, modified: str) -> str:
+    """Return a self-contained HTML file showing a readable side-by-side diff."""
+    orig_lines = _tex_to_plain(original).splitlines()
+    mod_lines  = _tex_to_plain(modified).splitlines()
+    differ = difflib.HtmlDiff(wrapcolumn=72)
+    html = differ.make_file(
+        orig_lines, mod_lines,
+        fromdesc="Original resume",
+        todesc="Tailored resume",
+        context=True,
+        numlines=2,
+    )
+    # inject nicer CSS right before </head>
+    html = html.replace("</head>", _HTML_EXTRA_CSS + "</head>", 1)
+    return html
