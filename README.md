@@ -28,6 +28,10 @@ Paste a job description → get a tailored `.tex` resume + human-sounding cover 
 
 ## Quick start
 
+**New to this?** Clone the repo, open [SETUP_PROMPT.md](SETUP_PROMPT.md), and paste the prompt into Claude Code or Codex. The AI will walk you through the full setup interactively — no manual file editing required.
+
+**Familiar with the project?**
+
 ```bash
 git clone https://github.com/Waaangjl/resume-tailor
 cd resume-tailor

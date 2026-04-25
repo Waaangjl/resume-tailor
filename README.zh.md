@@ -24,6 +24,17 @@
 
 ## 快速开始
 
+### 方式一：一键配置（推荐新手）
+
+```bash
+git clone https://github.com/Waaangjl/resume-tailor
+cd resume-tailor
+```
+
+然后打开 **[SETUP_PROMPT.md](SETUP_PROMPT.md)**，把里面的 prompt 复制给 Claude Code 或 Codex，AI 会引导你完成全部配置，不需要手动编辑任何文件。
+
+### 方式二：手动配置
+
 ```bash
 git clone https://github.com/Waaangjl/resume-tailor
 cd resume-tailor
