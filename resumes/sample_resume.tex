@@ -1,0 +1,162 @@
+%-------------------------
+% Resume in Latex
+% Based on Jake's Resume template (MIT License)
+% https://github.com/jakegut/resume
+%-------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\input{glyphtounicode}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+\pdfgentounicode=1
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
+\begin{document}
+
+%----------HEADING----------
+\begin{center}
+    \textbf{\Huge \scshape Alex Chen} \\ \vspace{1pt}
+    \small 555-123-4567 $|$ \href{mailto:alex@example.com}{\underline{alex@example.com}} $|$
+    \href{https://linkedin.com/in/alexchen}{\underline{linkedin.com/in/alexchen}} $|$
+    \href{https://github.com/alexchen}{\underline{github.com/alexchen}}
+\end{center}
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {State University}{City, ST}
+      {Bachelor of Science in Computer Science; GPA: 3.8/4.0}{Aug. 2019 -- May 2023}
+    \resumeSubheading
+      {Community College}{City, ST}
+      {Associate of Arts in General Studies}{Aug. 2017 -- May 2019}
+  \resumeSubHeadingListEnd
+
+%-----------EXPERIENCE-----------
+\section{Experience}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Software Engineer Intern}{June 2022 -- August 2022}
+      {Tech Company Inc.}{City, ST}
+      \resumeItemListStart
+        \resumeItem{Developed a new feature for the company's flagship product, reducing load time by 30\%}
+        \resumeItem{Collaborated with senior engineers to redesign the database schema, improving query performance by 25\%}
+        \resumeItem{Wrote unit tests achieving 85\% code coverage for the payments module}
+        \resumeItem{Participated in daily stand-ups and contributed to sprint planning using Agile methodology}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Research Assistant}{January 2022 -- May 2022}
+      {State University, Dept. of Computer Science}{City, ST}
+      \resumeItemListStart
+        \resumeItem{Collected and cleaned a dataset of 50,000 records for a machine learning study on text classification}
+        \resumeItem{Implemented three baseline models (logistic regression, SVM, BERT fine-tune) and ran comparative benchmarks}
+        \resumeItem{Co-authored a paper accepted at the university undergraduate research symposium}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Teaching Assistant, Intro to Algorithms}{August 2021 -- December 2021}
+      {State University}{City, ST}
+      \resumeItemListStart
+        \resumeItem{Led weekly office hours for 20+ students; graded problem sets and exams}
+        \resumeItem{Developed supplementary practice problems that were adopted by two subsequent course sections}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+%-----------PROJECTS-----------
+\section{Projects}
+    \resumeSubHeadingListStart
+      \resumeProjectHeading
+          {\textbf{Personal Finance Tracker} $|$ \emph{Python, PostgreSQL, React}}{Spring 2023}
+          \resumeItemListStart
+            \resumeItem{Built a full-stack web app to automatically categorize bank transactions and visualize spending trends}
+            \resumeItem{Integrated with Plaid API; deployed on AWS with CI/CD pipeline using GitHub Actions}
+          \resumeItemListEnd
+      \resumeProjectHeading
+          {\textbf{Distributed Cache} $|$ \emph{Go, Redis, Docker}}{Fall 2022}
+          \resumeItemListStart
+            \resumeItem{Implemented a consistent-hashing distributed cache supporting 10,000 req/s on a 3-node cluster}
+            \resumeItem{Wrote a load-testing harness and benchmarked against Redis Cluster baseline}
+          \resumeItemListEnd
+    \resumeSubHeadingListEnd
+
+%-----------SKILLS-----------
+\section{Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Languages}{: Python, Go, Java, SQL, JavaScript, TypeScript, C} \\
+     \textbf{Frameworks}{: React, Node.js, FastAPI, Spring Boot} \\
+     \textbf{Tools}{: Git, Docker, Kubernetes, AWS, PostgreSQL, Redis, GitHub Actions} \\
+     \textbf{Concepts}{: Distributed systems, REST APIs, Agile, data modeling, unit testing}
+    }}
+ \end{itemize}
+
+%-------------------------------------------
+\end{document}

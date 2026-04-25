@@ -1,0 +1,60 @@
+# Story Bank — copy this to story_bank.yaml and replace with your own stories.
+# Fill this once, reuse forever.
+#
+# Each story is a real moment from your life or career.
+# The tool automatically picks the most relevant one per job description.
+#
+# HOW TO WRITE A GOOD STORY:
+#   - One specific moment, not a general statement
+#   - Include what you observed, did, or realized
+#   - 2-4 sentences max per story
+#   - No adjectives like "impactful" or "passionate" — show, don't tell
+#   - Tags tell the system when to use it
+#
+# TAGS (pick 2-5 per story — add your own as needed):
+#   consulting, finance, research, data, policy, tech, engineering,
+#   leadership, due-diligence, modeling, strategy, startup, esg, pm
+
+stories:
+
+  - id: first_real_judgment_call
+    tags: [consulting, strategy, leadership]
+    text: |
+      At [Company], I was handed a dataset and told to recommend whether to proceed
+      with a [project/deal/hire]. The numbers pointed one way. But one of our
+      key assumptions was wrong in a way no one else had noticed. I flagged it.
+      The recommendation changed. That was the first time I understood that analysis
+      is really about the assumptions, not the spreadsheet.
+
+  - id: technical_edge_in_practice
+    tags: [engineering, data, research]
+    text: |
+      I built [tool/system] at [Company/school] to solve [specific problem].
+      The hard part wasn't the code — it was figuring out what we actually
+      needed versus what the original spec said. Ended up saving [outcome].
+      The same instinct shows up whenever I'm handed a complex technical brief.
+
+  - id: shipping_under_constraints
+    tags: [startup, pm, engineering, leadership]
+    text: |
+      We had two weeks to ship [feature/project] with a team of [N] people,
+      one of whom was new. I made a call to cut [scope] and nail the core.
+      It went live on time. The cut feature turned out not to matter.
+      I think about that tradeoff every time I'm prioritizing a roadmap.
+
+  - id: learning_the_domain
+    tags: [finance, policy, research, consulting]
+    text: |
+      I came into [role] knowing [adjacent skill] but not [domain].
+      Within [timeframe], I had to [specific task requiring domain knowledge].
+      I learned by [specific method]. It's still the fastest I've ever had
+      to get up to speed on something unfamiliar, and it's changed how I approach
+      new problem areas.
+
+  - id: finding_the_real_question
+    tags: [consulting, research, strategy, data]
+    text: |
+      The client asked us to analyze [surface question].
+      Three days in, it became clear the surface question wasn't the real one.
+      The real problem was [deeper problem]. We reframed, they agreed,
+      and the final recommendation was completely different from what they'd expected.

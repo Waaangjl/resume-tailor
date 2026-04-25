@@ -1,0 +1,29 @@
+# Personal files — copy from *.example.* and fill in your own details
+profile.yaml
+story_bank.yaml
+resumes/*
+!resumes/sample_resume.tex
+
+# Output
+output/
+
+# Job descriptions (your own collection)
+jds/
+
+# Writing samples used for style extraction
+writing_samples/*.txt
+writing_samples/style_guide.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# macOS
+.DS_Store

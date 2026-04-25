@@ -1,0 +1,15 @@
+# LiteLLM model string — change to switch providers.
+#
+# Cloud (needs API key in env):
+#   anthropic/claude-sonnet-4-5   →  export ANTHROPIC_API_KEY=...
+#   openai/gpt-4o                 →  export OPENAI_API_KEY=...
+#   openrouter/...                →  export OPENROUTER_API_KEY=...
+#
+# Local (no API key, needs Ollama running):
+#   ollama/llama3.1
+#   ollama/qwen2.5:14b
+#
+model: sonnet
+
+# Where tailored .tex and .diff files are saved
+output_dir: output

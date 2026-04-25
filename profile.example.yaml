@@ -1,0 +1,33 @@
+# Your personal profile — copy this to profile.yaml and fill it in.
+# This is what makes your cover letter sound like YOU, not a robot.
+# Be specific. Vague answers produce generic letters.
+
+name: Alex Chen
+
+# 2-3 sentences: who you are and what makes your background unusual
+background: |
+  I studied Computer Science and Economics at [University], which gave me an unusual habit:
+  I reach for data first but second-guess the model before trusting the output.
+  Now I'm finishing a [degree] at [school] focused on [area], trying to connect
+  technical skills to real business problems.
+
+# Why do you care about this type of work? A real reason, not a polished one.
+motivation: |
+  During an internship at [Company], I noticed that the most important variable in our
+  analysis wasn't in any spreadsheet — it was a judgment call about what would actually
+  happen next. That gap between model and reality is what pulled me toward this field.
+
+# What's your actual edge — what do you do that most candidates in your field can't?
+edge: |
+  I can [specific skill] and [specific skill], which means I can [concrete outcome].
+  Most people on my team have one or the other. I've had to build both.
+
+# One thing you've done that you're genuinely proud of (specific, not polished)
+proud_of: |
+  [Describe one specific project or moment. Include what you observed, built,
+  or realized. Keep it concrete — numbers, names, outcomes. 2-3 sentences.]
+
+# Anything else that makes you a real person (optional)
+other: |
+  [Hobbies, where you grew up, plans — anything that humanizes you without
+  seeming forced. One or two sentences. Or delete this field entirely.]
