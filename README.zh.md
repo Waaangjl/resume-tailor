@@ -65,7 +65,23 @@ output/Google_Software_Engineer_20260101/
 
 ### 第一步：准备你的简历
 
-把 `.tex` 格式的简历放到 `resumes/` 目录下。如果还没有 LaTeX 简历，可以参考 `resumes/sample_resume.tex`（Jake 风格模板）。
+**有 Word 文档（.docx）？** 直接用，工具会自动转换：
+
+```bash
+python tailor.py --resume resumes/your_resume.docx --jd jds/role.txt --no-pdf
+```
+
+转换后会自动在 `resumes/` 生成同名 `.tex` 文件，之后用 `.tex` 文件运行。
+
+**想用自己喜欢的模板？** 去 [Overleaf 简历模板库](https://www.overleaf.com/latex/templates?q=resume) 找一个，点 "Open as Template" → 左上角菜单 → "Download Source" → 解压，把主 `.tex` 文件放到 `resumes/`，直接传给工具即可。模板无关，任何标准 LaTeX 简历都支持。
+
+**内置模板：**
+
+| 文件 | 适合人群 |
+|------|---------|
+| `resumes/sample_resume.tex` | 通用技术岗（SWE / 数据 / 产品） |
+| `resumes/template_finance.tex` | 金融 / 咨询（教育在前，含 Leadership） |
+| `resumes/template_with_summary.tex` | 有工作经验 / 转行（含 Summary 段） |
 
 ### 第二步：填写个人档案
 

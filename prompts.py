@@ -1,6 +1,36 @@
 # All LLM prompts for resume-tailor.
 
 # ---------------------------------------------------------------------------
+# Word → LaTeX conversion
+# ---------------------------------------------------------------------------
+
+WORD_TO_LATEX_PROMPT = """\
+Convert the resume text below into a complete LaTeX resume file.
+
+Use the template provided as your structural guide — keep every \\command, \\resumeItem, \
+\\resumeSubheading, and environment exactly as shown in the template. \
+Only swap in the candidate's real content.
+
+STRICT RULES:
+1. Preserve EVERY fact from the original: dates, company names, job titles, metrics, skills
+2. Do NOT add, invent, or drop any information
+3. Map content to the correct commands:
+   - Jobs/internships/education → \\resumeSubheading{{Company}}{{Date}}{{Title}}{{Location}}
+   - Bullet points → \\resumeItem{{...}}
+   - Projects → \\resumeProjectHeading
+   - Skills → the \\begin{{itemize}} block at the bottom
+4. If the original has a section the template lacks (e.g. Publications, Certifications), \
+add it following the same \\section + \\resumeSubHeadingListStart pattern
+5. Return ONLY the complete .tex file. No explanation. No markdown fences. \
+Start with the very first character of the file.
+
+TEMPLATE (use this exact LaTeX structure):
+{template}
+
+RESUME TEXT TO CONVERT:
+{resume_text}"""
+
+# ---------------------------------------------------------------------------
 # Resume tailoring
 # ---------------------------------------------------------------------------
 

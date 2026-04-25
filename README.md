@@ -62,7 +62,23 @@ output/Google_Software_Engineer_20260101/
 
 ### 1. Add your resume
 
-Put your `.tex` resume in `resumes/`. A sample Jake-style template is at `resumes/sample_resume.tex` if you need a starting point.
+**Have a Word document?** Pass it directly — the tool converts it automatically:
+
+```bash
+python tailor.py --resume resumes/your_resume.docx --jd jds/role.txt
+```
+
+A `.tex` version is saved to `resumes/` automatically for future runs.
+
+**Want a specific template?** Browse [Overleaf's resume template gallery](https://www.overleaf.com/latex/templates?q=resume), open one you like, download the source (menu → Download Source), and drop the `.tex` file into `resumes/`. Any standard LaTeX resume works.
+
+**Built-in templates** (pick one as a starting point):
+
+| File | Best for |
+|------|----------|
+| `resumes/sample_resume.tex` | Tech / SWE / data / PM |
+| `resumes/template_finance.tex` | Finance / consulting (education-first, Leadership section) |
+| `resumes/template_with_summary.tex` | Career changers or candidates with 3+ years of experience |
 
 ### 2. Fill in your profile
 

@@ -18,6 +18,7 @@ import yaml
 import build
 import fetch
 import llm
+import word_to_tex
 from llm import LLMError
 from prompts import (
     COVER_LETTER_SYSTEM,
@@ -188,22 +189,36 @@ examples:
   python tailor.py --resume resumes/base.tex --jd jds/mckinsey.txt --no-cover-letter
 """,
     )
-    ap.add_argument("--resume", required=True, help="Base .tex resume path")
+    ap.add_argument("--resume", required=True, help="Base resume: .tex or .docx")
     ap.add_argument("--jd", required=True, help="JD: URL, file path, or pasted text")
     ap.add_argument("--model", default=cfg.get("model", "sonnet"),
                     help="'sonnet'/'opus' or LiteLLM model string (e.g. ollama/llama3.1)")
     ap.add_argument("--no-cover-letter", action="store_true")
     ap.add_argument("--no-pdf", action="store_true")
     ap.add_argument("--no-diff", action="store_true")
+    ap.add_argument("--template", default=None,
+                    help="LaTeX template to use when converting from .docx (default: sample_resume.tex)")
     args = ap.parse_args()
 
     resume_path = _resolve_path(args.resume)
     if not resume_path.exists():
         sys.exit(f"Resume not found: {resume_path}")
-    resume_tex = resume_path.read_text(encoding="utf-8")
 
-    print("[resume-tailor]")
-    print(f"  model  : {args.model}")
+    if resume_path.suffix.lower() == ".docx":
+        template_path = _resolve_path(args.template) if args.template else None
+        print("[resume-tailor]")
+        print(f"  model  : {args.model}")
+        print("  converting Word → LaTeX...")
+        resume_tex = word_to_tex.convert(resume_path, args.model, template_path)
+        tex_out = ROOT / "resumes" / resume_path.with_suffix(".tex").name
+        tex_out.write_text(resume_tex, encoding="utf-8")
+        print(f"  saved  : resumes/{tex_out.name}  (reuse with --resume resumes/{tex_out.name})")
+    else:
+        resume_tex = resume_path.read_text(encoding="utf-8")
+
+    if resume_path.suffix.lower() != ".docx":
+        print("[resume-tailor]")
+        print(f"  model  : {args.model}")
 
     jd_arg = args.jd
     if not jd_arg.startswith(("http://", "https://")):

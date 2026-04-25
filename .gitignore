@@ -3,6 +3,8 @@ profile.yaml
 story_bank.yaml
 resumes/*
 !resumes/sample_resume.tex
+!resumes/template_finance.tex
+!resumes/template_with_summary.tex
 
 # Output
 output/

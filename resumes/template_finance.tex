@@ -1,0 +1,153 @@
+%-------------------------
+% Finance / Consulting Resume Template
+% Based on Jake's Resume (MIT License) — adapted for finance/consulting roles
+% Education first, no Projects section, Leadership & Activities section
+%-------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\input{glyphtounicode}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+\pdfgentounicode=1
+
+\newcommand{\resumeItem}[1]{
+  \item\small{{#1 \vspace{-2pt}}}
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
+\begin{document}
+
+%----------HEADING----------
+\begin{center}
+    \textbf{\Huge \scshape Alex Chen} \\ \vspace{1pt}
+    \small 555-123-4567 $|$ \href{mailto:alex@example.com}{\underline{alex@example.com}} $|$
+    \href{https://linkedin.com/in/alexchen}{\underline{linkedin.com/in/alexchen}}
+\end{center}
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {State University}{City, ST}
+      {Bachelor of Arts in Economics and Finance; GPA: 3.8/4.0}{Aug. 2020 -- May 2024}
+      \resumeItemListStart
+        \resumeItem{Relevant coursework: Financial Modeling, Corporate Valuation, Econometrics, Fixed Income}
+        \resumeItem{Dean's List (all semesters); CFA Level I candidate}
+      \resumeItemListEnd
+  \resumeSubHeadingListEnd
+
+%-----------EXPERIENCE-----------
+\section{Experience}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Investment Bank Name}{June 2023 -- August 2023}
+      {Investment Banking Summer Analyst, M\&A}{New York, NY}
+      \resumeItemListStart
+        \resumeItem{Built LBO and DCF models for \$2.4B acquisition in the healthcare sector; supported live deal execution}
+        \resumeItem{Prepared management presentations, CIMs, and lender materials for two processes totaling \$800M}
+        \resumeItem{Screened 40+ potential targets using CapIQ; delivered preliminary valuation analysis to senior bankers}
+        \resumeItem{Coordinated due diligence across 6 workstreams, tracking 300+ open items in shared data room}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Asset Management Firm}{January 2023 -- May 2023}
+      {Research Analyst Intern, Equity Research}{City, ST}
+      \resumeItemListStart
+        \resumeItem{Initiated coverage on 3 mid-cap industrials; wrote initiating reports adopted by senior portfolio managers}
+        \resumeItem{Maintained financial models for 12 covered companies; updated estimates post-earnings each quarter}
+        \resumeItem{Identified a channel-check discrepancy that preceded a 15\% guidance cut; flagged 3 weeks before announcement}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {University Endowment Fund}{September 2022 -- December 2022}
+      {Analyst, Student-Managed Investment Fund}{City, ST}
+      \resumeItemListStart
+        \resumeItem{Presented 2 long equity ideas to investment committee; one was added to the \$1.2M portfolio}
+        \resumeItem{Wrote a sector note on regional bank stress testing methodology that was shared with faculty advisors}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+%-----------LEADERSHIP \& ACTIVITIES-----------
+\section{Leadership \& Activities}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Finance Club, State University}{September 2021 -- May 2024}
+      {Vice President, Recruiting}{City, ST}
+      \resumeItemListStart
+        \resumeItem{Placed 14 members into bulge bracket and middle market banking roles over two recruiting cycles}
+        \resumeItem{Redesigned the club's technical training curriculum; 90\% of members rated it "significantly helpful"}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Case Competition Team}{January 2023 -- April 2023}
+      {Team Lead}{City, ST}
+      \resumeItemListStart
+        \resumeItem{Led 4-person team to regional finalist in the [Competition Name] restructuring case; presented to 3 judges from PE firms}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+%-----------SKILLS-----------
+\section{Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Financial modeling}{: DCF, LBO, merger model, accretion/dilution, trading/transaction comps} \\
+     \textbf{Tools}{: Excel (advanced), PowerPoint, CapIQ, Bloomberg Terminal, FactSet, Python (pandas, numpy)} \\
+     \textbf{Languages}{: English (native), Mandarin (fluent)}
+    }}
+ \end{itemize}
+
+%-------------------------------------------
+\end{document}

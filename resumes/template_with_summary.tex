@@ -1,0 +1,157 @@
+%-------------------------
+% Resume with Professional Summary
+% Based on Jake's Resume (MIT License) — adds summary section for career changers
+% and candidates with 3+ years of experience
+%-------------------------
+
+\documentclass[letterpaper,11pt]{article}
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\input{glyphtounicode}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+\pdfgentounicode=1
+
+\newcommand{\resumeItem}[1]{
+  \item\small{{#1 \vspace{-2pt}}}
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & #2 \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{0.97\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & #2 \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
+\begin{document}
+
+%----------HEADING----------
+\begin{center}
+    \textbf{\Huge \scshape Alex Chen} \\ \vspace{1pt}
+    \small 555-123-4567 $|$ \href{mailto:alex@example.com}{\underline{alex@example.com}} $|$
+    \href{https://linkedin.com/in/alexchen}{\underline{linkedin.com/in/alexchen}} $|$
+    \href{https://github.com/alexchen}{\underline{github.com/alexchen}}
+\end{center}
+
+%-----------SUMMARY-----------
+% Use this for: career transitions, senior roles (5+ years), or when your background
+% needs context. Keep it to 2-3 lines. Do NOT use buzzwords.
+\section{Summary}
+\small{
+Software engineer with 4 years of experience building data pipelines and APIs in fintech.
+Background in both backend systems and applied ML; currently focused on real-time risk analytics.
+Looking to move into a role where engineering work is closer to quantitative research.
+}
+\vspace{-4pt}
+
+%-----------EXPERIENCE-----------
+\section{Experience}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Company Name}{June 2022 -- Present}
+      {Senior Software Engineer}{City, ST}
+      \resumeItemListStart
+        \resumeItem{Built a real-time transaction scoring system processing 50K events/sec with p99 latency under 8ms}
+        \resumeItem{Led migration of batch fraud pipeline from Spark to Flink, reducing detection lag from 4h to 90s}
+        \resumeItem{Mentored 3 junior engineers; introduced team-wide contract testing that cut integration incidents by 40\%}
+        \resumeItem{Designed a feature store serving 12 ML models; reduced duplicate feature computation by 60\%}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Previous Company}{July 2020 -- May 2022}
+      {Software Engineer}{City, ST}
+      \resumeItemListStart
+        \resumeItem{Owned the payments API (Go + PostgreSQL) handling \$2M in daily transaction volume}
+        \resumeItem{Re-architected retry logic to be idempotent; eliminated \$30K/month in duplicate charges}
+        \resumeItem{Built internal tooling that reduced on-call investigation time from 25 min to 6 min average}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Startup Name}{May 2019 -- June 2020}
+      {Junior Software Engineer}{City, ST}
+      \resumeItemListStart
+        \resumeItem{Shipped the company's first mobile API (REST + JWT auth); used by 8K MAU at launch}
+        \resumeItem{Wrote the initial CI/CD pipeline using GitHub Actions; cut deploy time from 45 min to 9 min}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+
+%-----------EDUCATION-----------
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {State University}{City, ST}
+      {Bachelor of Science in Computer Science}{Aug. 2015 -- May 2019}
+  \resumeSubHeadingListEnd
+
+%-----------PROJECTS-----------
+\section{Projects}
+    \resumeSubHeadingListStart
+      \resumeProjectHeading
+          {\textbf{Open Source Contribution} $|$ \emph{Go, gRPC}}{2023}
+          \resumeItemListStart
+            \resumeItem{Contributed connection pooling improvements to [library name]; merged after 3 review rounds, used by 200+ repos}
+          \resumeItemListEnd
+    \resumeSubHeadingListEnd
+
+%-----------SKILLS-----------
+\section{Skills}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small{\item{
+     \textbf{Languages}{: Go, Python, SQL, Java, TypeScript} \\
+     \textbf{Infrastructure}{: Kubernetes, AWS, Terraform, Kafka, Flink, Redis, PostgreSQL} \\
+     \textbf{Concepts}{: Distributed systems, stream processing, ML feature engineering, system design}
+    }}
+ \end{itemize}
+
+%-------------------------------------------
+\end{document}

@@ -72,22 +72,53 @@
 
 ## 第三步：准备简历
 
-问我：**你有 LaTeX 格式的简历（.tex 文件）吗？**
+问我：**你的简历现在是什么格式？**
+
+---
 
 **情况 A：有 .tex 文件**
-让我把文件路径告诉你，或者把内容粘贴给你。你帮我把文件放到 resumes/ 目录下，确认格式正确（能找到 \documentclass 和 \end{document}）。
+让我把文件路径告诉你，或者把内容粘贴给你。把文件放到 resumes/ 目录下，确认能找到 `\documentclass` 和 `\end{document}`，然后继续第四步。
 
-**情况 B：只有 PDF 或 Word**
-告诉我：直接从 PDF/Word 转换质量很差，建议用 resumes/sample_resume.tex 作为模板，然后我来填入我自己的内容。问我：
-- 工作经历有几段？每段公司名、职位、时间、主要职责是什么？
-- 教育背景？
-- 技能和工具？
-- 有什么项目或研究经历？
+---
 
-根据我提供的信息，帮我把 sample_resume.tex 改成我自己的简历，保存为 resumes/my_resume.tex。
+**情况 B：有 Word 文档（.docx）**
+告诉我：`.docx` 可以直接用，工具会自动转换。让我把 .docx 文件放到 resumes/ 目录下。运行：
 
-**情况 C：完全没有简历**
-直接用情况 B 的流程，从零帮我建一份 Jake 风格的 LaTeX 简历。
+```bash
+python tailor.py --resume resumes/<文件名>.docx --jd "test" --no-cover-letter --no-pdf
+```
+
+转换完成后，`resumes/` 里会自动生成同名的 `.tex` 文件，之后用 `.tex` 文件运行即可。
+
+---
+
+**情况 C：想用自己喜欢的 LaTeX 模板**
+
+推荐去 Overleaf 找：https://www.overleaf.com/latex/templates?q=resume
+
+步骤：
+1. 在 Overleaf 找到喜欢的模板，点进去
+2. 点右上角 **"Open as Template"**，进入编辑器
+3. 点左上角菜单 → **Download Source** → 得到 `.zip` 文件
+4. 解压，找到主 `.tex` 文件（通常叫 `main.tex` 或模板名.tex），放到 resumes/ 目录下
+5. 把文件内容粘贴给我，我帮你用这个模板结构重建简历
+
+---
+
+**情况 D：只有 PDF，或者完全没有简历**
+
+问我以下内容，我来帮你从头建一份：
+- 工作/实习经历（每段：公司名、职位、时间、主要做了什么，2-4 件事）
+- 教育背景（学校、专业、时间、GPA 可选）
+- 技能和工具
+- 项目或研究经历（可选）
+
+内置模板可选：
+- `resumes/sample_resume.tex` — 通用技术岗（SWE/数据/产品）
+- `resumes/template_finance.tex` — 金融/咨询（教育在前，含 Leadership 部分）
+- `resumes/template_with_summary.tex` — 有工作经验 / 转行（含 Summary 段）
+
+告诉我你是哪类岗位，我会选对应模板来填写，保存为 `resumes/my_resume.tex`。
 
 ---
 
