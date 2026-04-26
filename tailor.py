@@ -11,6 +11,7 @@ Usage:
 import argparse
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -253,7 +254,11 @@ examples:
             diff_path = out_dir / "resume.diff"
             diff_path.write_text(diff, encoding="utf-8")
             html_path = out_dir / "resume_changes.html"
-            html_path.write_text(build.make_html_diff(resume_tex, tailored_tex), encoding="utf-8")
+            html_path.write_text(build.make_html_diff(
+                resume_tex, tailored_tex,
+                company=meta.company, role=meta.role,
+                date=datetime.now().strftime("%Y-%m-%d"),
+            ), encoding="utf-8")
             print(f"  diff   : resume_changes.html  ({changed} lines changed)")
 
     if not args.no_cover_letter:

@@ -115,8 +115,8 @@ class TestMakeHtmlDiff:
 
     def test_contains_both_descriptions(self):
         html = make_html_diff("old\n", "new\n")
-        assert "Original resume" in html
-        assert "Tailored resume" in html
+        assert "Original" in html
+        assert "Tailored" in html
 
     def test_changed_word_appears_in_output(self):
         html = make_html_diff("build a pipeline\n", "build a platform\n")
