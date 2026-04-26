@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Resume Changes — Plan B preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #fafaf7;
+    --paper: #ffffff;
+    --ink: #1a1a17;
+    --ink-2: #56534b;
+    --ink-3: #8a8780;
+    --line: #e7e5dd;
+    --add-bg: #dcfce7;
+    --add-fg: #16a34a;
+    --sub-bg: #fee2e2;
+    --sub-fg: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.55; }
+  body { padding: 56px 24px 120px; }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  header.doc-header { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+  .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+  h1.title { font-size: 24px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.015em; color: var(--ink); }
+  .subtitle { font-size: 13px; color: var(--ink-2); }
+  .arrow { color: var(--ink-3); margin: 0 6px; }
+  .legend { display: flex; gap: 16px; margin-top: 16px; font-size: 12px; color: var(--ink-2); flex-wrap: wrap; }
+  .legend .item { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }
+
+  .seclabel { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-3); margin: 36px 0 14px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--line); font-weight: 500; }
+  .seclabel:first-of-type { margin-top: 0; }
+
+  .jobline { font-size: 14px; font-weight: 500; color: var(--ink); margin: 22px 0 10px; }
+
+  .bullet { padding: 6px 0 6px 22px; position: relative; font-size: 14px; line-height: 1.7;
+    color: var(--ink); }
+  .bullet::before { content: '•'; position: absolute; left: 6px; top: 6px; color: var(--ink-3); }
+
+  .add { background: var(--add-bg); color: var(--add-fg); padding: 1px 3px; border-radius: 2px;
+    text-decoration: none; }
+  .sub { background: var(--sub-bg); color: var(--sub-fg); padding: 1px 3px; border-radius: 2px;
+    text-decoration: line-through; text-decoration-color: rgba(220,38,38,0.45);
+    text-decoration-thickness: 1px; }
+  ins, del { text-decoration: none; }
+  ins { background: var(--add-bg); color: var(--add-fg); padding: 1px 3px; border-radius: 2px; }
+  del { background: var(--sub-bg); color: var(--sub-fg); padding: 1px 3px; border-radius: 2px;
+    text-decoration: line-through; text-decoration-color: rgba(220,38,38,0.45);
+    text-decoration-thickness: 1px; }
+
+  /* a whole-bullet add/remove gets a left rail too */
+  .bullet.added { background: linear-gradient(90deg, rgba(220,252,231,0.4), transparent 60%);
+    border-left: 2px solid var(--add-fg); padding-left: 22px; margin-left: -10px; padding-left: 32px; }
+  .bullet.added::before { left: 16px; }
+  .bullet.removed { background: linear-gradient(90deg, rgba(254,226,226,0.4), transparent 60%);
+    border-left: 2px solid var(--sub-fg); padding-left: 22px; margin-left: -10px; padding-left: 32px; }
+  .bullet.removed::before { left: 16px; color: var(--sub-fg); }
+
+  .stats { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-3); margin-top: 6px; }
+  .stats .plus { color: var(--add-fg); }
+  .stats .minus { color: var(--sub-fg); }
+
+  @media (prefers-color-scheme: dark) {
+    /* keep light — résumés feel right on paper */
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc-header">
+  <div class="eyebrow">resume changes</div>
+  <h1 class="title">Original <span class="arrow">→</span> Tailored</h1>
+  <div class="subtitle">McKinsey · Business Analyst &nbsp;·&nbsp; <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-3)">Apr 25 2026</span></div>
+  <div class="legend">
+    <span class="item"><span class="swatch" style="background:var(--add-bg)"></span>added</span>
+    <span class="item"><span class="swatch" style="background:var(--sub-bg)"></span>removed</span>
+    <span class="item stats"><span class="plus">+12 inserts</span> · <span class="minus">−9 removals</span></span>
+  </div>
+</header>
+
+<div class="seclabel">Experience</div>
+
+<div class="jobline">Columbia Climate School — Teaching Assistant <span style="color:var(--ink-3);font-weight:400">· Sep 2025 – Jan 2026</span></div>
+
+<div class="bullet">Led in-depth <ins>quantitative</ins> analysis of cost of capital drivers, credit rating <del>practices</del><ins>methodologies</ins>, and climate-related financial risk frameworks to support risk-adjusted return evaluation and <del>sustainable investment decisions.</del><ins>fact-based investment decision-making for institutional and alternative asset managers.</ins></div>
+
+<div class="bullet">Analyzed and presented case studies on capital allocation<ins> strategies</ins>, debt-for-climate swaps, and blended finance structures, <del>highlighting their implications for investment strategy</del><ins>identifying investment implications and strategic upside opportunities</ins> in emerging markets</div>
+
+<div class="bullet">Supported graduate-level instruction on the global climate finance system, covering key mechanisms such as blended and concessional finance, debt sustainability frameworks, adaptation and resilience financing, carbon markets, and innovative financial architectures under the UNFCCC framework</div>
+
+<div class="jobline">Silver Leaf Partners — Sustainable Finance Summer Intern <span style="color:var(--ink-3);font-weight:400">· Jun 2025 – Aug 2025</span></div>
+
+<div class="bullet"><del>Conducted detailed financial modeling to support project feasibility</del><ins>Conducted due diligence processes for sustainable finance investments by collecting deal-related information, preparing comprehensive diligence materials, performing competitor analysis, and identifying potential funding sources to support investment decisions and funding rounds</ins></div>
+
+<div class="bullet added">Developed detailed financial models to support investment feasibility assessments, including revenue forecasts, discounted cash flow analyses, and sensitivity testing, providing fact-based rationale for investor presentations and strategic funding decisions</div>
+
+<div class="bullet">Enhanced <del>CRM system usage</del><ins>deal pipeline visibility</ins> by systematically tracking investor interactions, mapping investor profiles to relevant fundraising stages, and refining data inputs to optimize relationship management and <del>pipeline visibility</del><ins>inform investment strategy</ins></div>
+
+<div class="bullet removed">Assisted in fundraising efforts by preparing investor pitch materials, conducting market analysis to identify potential funding sources, and drafting due diligence materials to support funding rounds for sustainable finance projects</div>
+
+<div class="jobline">Control Risks — Intern (Crisis & Security Consulting) <span style="color:var(--ink-3);font-weight:400">· Aug 2023 – Nov 2023</span></div>
+
+<div class="bullet"><del>Executed analyses of potential new clients</del><ins>Conducted due diligence on prospective clients</ins> by researching company backgrounds<del> and developments, assessing alignment with strategic objectives to identify lucrative outreach opportunities</del><ins>, financial exposures, and strategic developments to assess alignment with business objectives and identify high-value engagement opportunities</ins></div>
+
+<div class="bullet"><del>Strategized risk assessments</del><ins>Developed risk assessment frameworks</ins> for client companies and <del>designing</del><ins>designed</ins> customized risk control plans, <del>directing mitigating identified vulnerabilities and ensuring optimal security against potential threats</del><ins>formulating and testing hypotheses to identify key vulnerabilities and deliver fact-based recommendations to strengthen risk governance</ins></div>
+
+<div class="jobline">Trivium China — Intern Analyst <span style="color:var(--ink-3);font-weight:400">· Feb 2023 – May 2023</span></div>
+
+<div class="bullet"><del>Performed an antitrust review for the acquisition of a biotech/pharma company, analyzing regulatory and geopolitical considerations under US-China tensions to ensure compliance with antitrust laws and know potential risks</del><ins>Executed antitrust due diligence for a biotech/pharma acquisition, analyzing regulatory frameworks and geopolitical risk factors under US-China tensions to assess deal feasibility, identify compliance requirements, and evaluate potential transaction risks</ins></div>
+
+<div class="bullet"><del>Conducted comprehensive public record research</del><ins>Conducted comprehensive due diligence research</ins> on a U.S.-based chemical company's <del>operations in China</del><ins>China operations</ins>, analyzing regulatory compliance, <del>business practices, and market presence to support due diligence assessments and risk control</del><ins>market presence, and business practices to identify risks and support investment decision-making</ins></div>
+
+</div>
+</body>
+</html>
