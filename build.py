@@ -1,6 +1,7 @@
 """PDF compilation, output folder management, diff utilities."""
 
 import difflib
+import html
 import json
 import re
 import shutil
@@ -157,6 +158,7 @@ def _tex_to_plain(tex: str) -> str:
 
 _HTML_EXTRA_CSS = """
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
     --bg: #fafaf7; --paper: #ffffff; --ink: #1a1a17; --ink-2: #56534b;
     --ink-3: #8a8780; --line: #e7e5dd;
@@ -169,7 +171,6 @@ _HTML_EXTRA_CSS = """
     -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.55; }
   body { padding: 56px 24px 120px; }
   .wrap { max-width: 880px; margin: 0 auto; }
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
   header.doc-header { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
   .eyebrow { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
@@ -206,37 +207,35 @@ _HTML_EXTRA_CSS = """
   .bullet.removed { background: linear-gradient(90deg, rgba(254,226,226,.4), transparent 60%);
     border-left: 2px solid var(--sub-fg); margin-left: -10px; padding-left: 32px; }
   .bullet.removed::before { left: 16px; color: var(--sub-fg); }
+  .para.removed, .jobline.removed, .seclabel.removed {
+    background: linear-gradient(90deg, rgba(254,226,226,.4), transparent 60%);
+    border-left: 2px solid var(--sub-fg); margin-left: -10px; padding-left: 10px;
+    color: var(--sub-fg); text-decoration: line-through; }
 </style>
 """
 
-import html as _html_mod
-
 _WORD_RE = re.compile(r"\s+|\S+")
-
-
-def _tokens(s: str) -> list[str]:
-    return _WORD_RE.findall(s)
+_BULLET_RE  = re.compile(r"^\s*•\s+(.*)$")
+_SECTION_RE = re.compile(r"^\s*===\s*(.+?)\s*===\s*$")
+# Matches the subheading format produced by _tex_to_plain: "Company — Role (Year)"
+_JOBLINE_SEP = " — "
 
 
 def _inline_word_diff(a: str, b: str) -> str:
-    ta, tb = _tokens(a), _tokens(b)
+    ta, tb = _WORD_RE.findall(a), _WORD_RE.findall(b)
     sm = difflib.SequenceMatcher(a=ta, b=tb, autojunk=False)
     out: list[str] = []
     for tag, i1, i2, j1, j2 in sm.get_opcodes():
         if tag == "equal":
-            out.append(_html_mod.escape("".join(ta[i1:i2])))
+            out.append(html.escape("".join(ta[i1:i2])))
         elif tag == "delete":
-            out.append("<del>" + _html_mod.escape("".join(ta[i1:i2])) + "</del>")
+            out.append("<del>" + html.escape("".join(ta[i1:i2])) + "</del>")
         elif tag == "insert":
-            out.append("<ins>" + _html_mod.escape("".join(tb[j1:j2])) + "</ins>")
+            out.append("<ins>" + html.escape("".join(tb[j1:j2])) + "</ins>")
         elif tag == "replace":
-            out.append("<del>" + _html_mod.escape("".join(ta[i1:i2])) + "</del>")
-            out.append("<ins>" + _html_mod.escape("".join(tb[j1:j2])) + "</ins>")
+            out.append("<del>" + html.escape("".join(ta[i1:i2])) + "</del>")
+            out.append("<ins>" + html.escape("".join(tb[j1:j2])) + "</ins>")
     return "".join(out)
-
-
-_BULLET_RE  = re.compile(r"^\s*•\s+(.*)$")
-_SECTION_RE = re.compile(r"^\s*===\s*(.+?)\s*===\s*$")
 
 
 def _classify(line: str) -> tuple[str, str]:
@@ -248,22 +247,21 @@ def _classify(line: str) -> tuple[str, str]:
     m = _BULLET_RE.match(line)
     if m:
         return "bullet", m.group(1)
-    if "—" in line or " - " in line:
+    if _JOBLINE_SEP in line and "(" in line:
         return "jobline", line.strip()
     return "para", line.strip()
 
 
+_KIND_CLASS = {"section": "seclabel", "jobline": "jobline", "bullet": "bullet", "para": "para"}
+
+
 def _wrap_line(kind: str, payload_html: str, mod: str = "") -> str:
-    if kind == "section":
-        return f'<div class="seclabel">{payload_html}</div>'
-    if kind == "jobline":
-        return f'<div class="jobline">{payload_html}</div>'
-    if kind == "bullet":
-        cls = "bullet" + (f" {mod}" if mod else "")
-        return f'<div class="{cls}">{payload_html}</div>'
     if kind == "blank":
         return ""
-    return f'<div class="para">{payload_html}</div>'
+    cls = _KIND_CLASS.get(kind, "para")
+    if mod:
+        cls += f" {mod}"
+    return f'<div class="{cls}">{payload_html}</div>'
 
 
 def _render_body(orig_lines: list[str], mod_lines: list[str]) -> tuple[str, int, int]:
@@ -275,7 +273,7 @@ def _render_body(orig_lines: list[str], mod_lines: list[str]) -> tuple[str, int,
         if tag == "equal":
             for line in orig_lines[i1:i2]:
                 kind, payload = _classify(line)
-                out.append(_wrap_line(kind, _html_mod.escape(payload)))
+                out.append(_wrap_line(kind, html.escape(payload)))
 
         elif tag == "delete":
             for line in orig_lines[i1:i2]:
@@ -283,13 +281,7 @@ def _render_body(orig_lines: list[str], mod_lines: list[str]) -> tuple[str, int,
                 if kind == "blank":
                     continue
                 n_del += 1
-                if kind == "bullet":
-                    out.append(_wrap_line("bullet", _html_mod.escape(payload), mod="removed"))
-                else:
-                    out.append(f'<div class="para" style="background:rgba(254,226,226,.4);'
-                               f'border-left:2px solid var(--sub-fg);padding-left:10px;'
-                               f'color:var(--sub-fg);text-decoration:line-through">'
-                               f'{_html_mod.escape(payload)}</div>')
+                out.append(_wrap_line(kind, html.escape(payload), mod="removed"))
 
         elif tag == "insert":
             for line in mod_lines[j1:j2]:
@@ -297,10 +289,7 @@ def _render_body(orig_lines: list[str], mod_lines: list[str]) -> tuple[str, int,
                 if kind == "blank":
                     continue
                 n_ins += 1
-                if kind == "bullet":
-                    out.append(_wrap_line("bullet", _html_mod.escape(payload), mod="added"))
-                else:
-                    out.append(_wrap_line(kind, _html_mod.escape(payload)))
+                out.append(_wrap_line(kind, html.escape(payload), mod="added" if kind == "bullet" else ""))
 
         elif tag == "replace":
             block_a = [l for l in orig_lines[i1:i2] if l.strip()]
@@ -316,15 +305,11 @@ def _render_body(orig_lines: list[str], mod_lines: list[str]) -> tuple[str, int,
             for line in block_a[paired:]:
                 kind, payload = _classify(line)
                 n_del += 1
-                if kind == "bullet":
-                    out.append(_wrap_line("bullet", _html_mod.escape(payload), mod="removed"))
+                out.append(_wrap_line(kind, html.escape(payload), mod="removed"))
             for line in block_b[paired:]:
                 kind, payload = _classify(line)
                 n_ins += 1
-                if kind == "bullet":
-                    out.append(_wrap_line("bullet", _html_mod.escape(payload), mod="added"))
-                else:
-                    out.append(_wrap_line(kind, _html_mod.escape(payload)))
+                out.append(_wrap_line(kind, html.escape(payload), mod="added" if kind == "bullet" else ""))
 
     return "\n".join(out), n_ins, n_del
 
@@ -342,8 +327,10 @@ def make_html_diff(
     mod_lines  = _tex_to_plain(modified).splitlines()
     body_html, n_ins, n_del = _render_body(orig_lines, mod_lines)
 
+    if not date:
+        date = datetime.now().strftime("%Y-%m-%d")
     subtitle_parts = [p for p in [company.replace("_", " "), role.replace("_", " "), date] if p]
-    subtitle = " &nbsp;·&nbsp; ".join(_html_mod.escape(p) for p in subtitle_parts)
+    subtitle = " &nbsp;·&nbsp; ".join(html.escape(p) for p in subtitle_parts)
 
     return f"""<!DOCTYPE html>
 <html lang="en">

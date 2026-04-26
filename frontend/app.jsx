@@ -2,7 +2,6 @@
 
 const { useState, useRef, useEffect, useMemo, Fragment } = React;
 
-/* ===================== STEP DEFINITIONS ===================== */
 const STEPS = [
   { id: 'resume',  title: 'Resume',   sub: 'Where should we start from?' },
   { id: 'jd',      title: 'JD',       sub: 'Paste the job description.' },
@@ -14,17 +13,25 @@ const STEPS = [
 
 const SUGGESTED_TAGS = ['Quant', 'Research', 'ML', 'Backend', 'Frontend', 'Data', 'Leadership', 'Open-source'];
 
+const wordCount = (s) => s.trim().split(/\s+/).filter(Boolean).length;
+
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "step": 0,
   "fastGen": false,
   "showSkips": true
 }/*EDITMODE-END*/;
 
-/* ===================== APP ===================== */
+/* Validates whether the user can advance past the resume step */
+const RESUME_VALID = {
+  scratch:  d => !!d.template,
+  file:     d => !!d.file,
+  overleaf: d => !!d.latex.trim(),
+  previous: () => true,
+};
+
 function App() {
   const [tweaks, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
 
-  // form state
   const [data, setData] = useState({
     resume: { mode: null, file: null, template: null, latex: '' },
     jd:     { mode: 'url', url: '', text: '', fetched: false, fetchState: 'idle' },
@@ -44,48 +51,43 @@ function App() {
   const next = () => goto(stepIdx + 1);
   const back = () => goto(stepIdx - 1);
 
-  /* ----- mock generation ----- */
+  const timersRef = useRef([]);
+  const clearTimers = () => { timersRef.current.forEach(clearTimeout); timersRef.current = []; };
+  useEffect(() => clearTimers, []); // clear on unmount
+
   const startGen = () => {
+    clearTimers();
     setPhase('generating');
     setProgress({ step: 0, sub: 0 });
     const stepDelay = tweaks.fastGen ? 250 : 900;
     const sequence = [
-      'Parsing resume…',
-      'Analyzing job description…',
-      'Selecting relevant stories…',
-      'Tailoring bullets…',
-      'Drafting cover letter…',
-      'Building diff…',
+      'Parsing resume…', 'Analyzing job description…', 'Selecting relevant stories…',
+      'Tailoring bullets…', 'Drafting cover letter…', 'Building diff…',
     ];
     sequence.forEach((_, i) => {
-      setTimeout(() => setProgress({ step: i, sub: 0 }), i * stepDelay);
+      timersRef.current.push(setTimeout(() => setProgress({ step: i, sub: 0 }), i * stepDelay));
     });
-    setTimeout(() => {
+    timersRef.current.push(setTimeout(() => {
       setProgress({ step: sequence.length, sub: 0 });
       setResults({ generatedAt: new Date() });
-      setTimeout(() => setPhase('results'), 600);
-    }, sequence.length * stepDelay + 400);
+      timersRef.current.push(setTimeout(() => setPhase('results'), 600));
+    }, sequence.length * stepDelay + 400));
   };
 
-  const reset = () => { setPhase('wizard'); setResults(null); goto(0); };
+  const reset = () => { clearTimers(); setPhase('wizard'); setResults(null); goto(0); };
 
-  /* ----- step validity ----- */
   const canContinue = useMemo(() => {
-    switch (STEPS[stepIdx].id) {
-      case 'resume':  return !!data.resume.mode && (data.resume.mode === 'scratch' ? !!data.resume.template : data.resume.mode === 'file' ? !!data.resume.file : data.resume.mode === 'overleaf' ? !!data.resume.latex.trim() : data.resume.mode === 'previous');
-      case 'jd':      return data.jd.mode === 'url' ? !!data.jd.url.trim() : !!data.jd.text.trim();
-      case 'profile': return !!data.profile.name.trim() && !!data.profile.email.trim();
-      case 'stories': return data.stories.some(s => s.text.trim().length > 20);
-      case 'voice':   return true;
-      case 'review':  return true;
-      default: return true;
-    }
+    const id = STEPS[stepIdx].id;
+    if (id === 'resume')  return !!data.resume.mode && (RESUME_VALID[data.resume.mode]?.(data.resume) ?? false);
+    if (id === 'jd')      return data.jd.mode === 'url' ? !!data.jd.url.trim() : !!data.jd.text.trim();
+    if (id === 'profile') return !!data.profile.name.trim() && !!data.profile.email.trim();
+    if (id === 'stories') return data.stories.some(s => s.text.trim().length > 20);
+    return true;
   }, [stepIdx, data]);
 
-  /* ----- header ----- */
   const ProgressHeader = () => (
     <Fragment>
-      <div className="progress-rail"><div className="progress-fill" style={{ width: `${((stepIdx) / (STEPS.length - 1)) * 100}%` }} /></div>
+      <div className="progress-rail"><div className="progress-fill" style={{ width: `${(stepIdx / (STEPS.length - 1)) * 100}%` }} /></div>
       <div className="topbar">
         <span className="brand"><span className="mark"><Icon name="logo" size={22}/></span>resume-tailor</span>
         <div className="steplist">
@@ -100,7 +102,6 @@ function App() {
     </Fragment>
   );
 
-  /* ----- phase rendering ----- */
   if (phase === 'generating') return <GenerationScreen progress={progress} fast={tweaks.fastGen} />;
   if (phase === 'results')    return <ResultsScreen results={results} reset={reset} data={data} />;
 
@@ -136,7 +137,6 @@ function App() {
   );
 }
 
-/* ===================== STEP 1: RESUME ===================== */
 function StepResume({ data, update }) {
   const fileRef = useRef();
   const [drag, setDrag] = useState(false);
@@ -194,7 +194,6 @@ function StepResume({ data, update }) {
     );
   }
 
-  /* sub-screens after picking a mode */
   return (
     <div className="step">
       <div className="eyebrow">
@@ -273,7 +272,6 @@ function StepResume({ data, update }) {
   );
 }
 
-/* ===================== STEP 2: JD ===================== */
 function StepJD({ data, update }) {
   const fetchUrl = () => {
     update('jd', { fetchState: 'fetch' });
@@ -320,7 +318,7 @@ function StepJD({ data, update }) {
         <Fragment>
           <textarea className="text" rows="12" placeholder="Paste the full job description here..." value={data.jd.text} onChange={(e) => update('jd',{text:e.target.value})}/>
           <div className="meta-row">
-            <span>{data.jd.text.trim().split(/\s+/).filter(Boolean).length} words</span>
+            <span>{wordCount(data.jd.text)} words</span>
           </div>
           {tooShort && <div className="warn-note">That's pretty short — paste the full JD for better tailoring.</div>}
         </Fragment>
@@ -329,39 +327,41 @@ function StepJD({ data, update }) {
   );
 }
 
-/* ===================== STEP 3: PROFILE ===================== */
-function StepProfile({ data, update, showSkips }) {
-  const F = ({ k, label, req, opt, ph, type='text' }) => (
+/* Defined at module scope so React doesn't unmount/remount the <input> on every keystroke */
+function ProfileField({ k, label, req, opt, ph, type, value, showSkips, update }) {
+  return (
     <div className="field">
       <div className="field-label">
         {label} {req && <span className="req">*</span>} {opt && <span className="badge-opt">optional</span>}
-        {showSkips && opt && data.profile[k] && <button className="skip-inline" onClick={() => update('profile', { [k]: '' })}>clear</button>}
+        {showSkips && opt && value && <button className="skip-inline" onClick={() => update('profile', { [k]: '' })}>clear</button>}
       </div>
-      <input className="text" type={type} placeholder={ph} value={data.profile[k]} onChange={(e) => update('profile', { [k]: e.target.value })}/>
+      <input className="text" type={type || 'text'} placeholder={ph} value={value} onChange={(e) => update('profile', { [k]: e.target.value })}/>
     </div>
   );
+}
+
+function StepProfile({ data, update, showSkips }) {
+  const fp = (k) => ({ k, value: data.profile[k], showSkips, update });
   return (
     <div className="step">
       <div className="eyebrow">step 03 / 06 · profile</div>
       <h1 className="step-title">Your contact info</h1>
       <p className="step-subtitle">This goes at the top of your resume. Only name and email are required.</p>
-      <F k="name"     label="Full name"   req ph="Jialong Li"/>
-      <F k="email"    label="Email"       req type="email" ph="jl@columbia.edu"/>
-      <F k="phone"    label="Phone"       opt ph="+1 (212) 555-0123"/>
-      <F k="location" label="Location"    opt ph="New York, NY"/>
-      <F k="linkedin" label="LinkedIn"    opt ph="linkedin.com/in/…"/>
-      <F k="github"   label="GitHub"      opt ph="github.com/…"/>
-      <F k="website"  label="Website"     opt ph="yourname.com"/>
+      <ProfileField {...fp('name')}     label="Full name"  req ph="Jialong Li"/>
+      <ProfileField {...fp('email')}    label="Email"      req type="email" ph="jl@columbia.edu"/>
+      <ProfileField {...fp('phone')}    label="Phone"      opt ph="+1 (212) 555-0123"/>
+      <ProfileField {...fp('location')} label="Location"   opt ph="New York, NY"/>
+      <ProfileField {...fp('linkedin')} label="LinkedIn"   opt ph="linkedin.com/in/…"/>
+      <ProfileField {...fp('github')}   label="GitHub"     opt ph="github.com/…"/>
+      <ProfileField {...fp('website')}  label="Website"    opt ph="yourname.com"/>
     </div>
   );
 }
 
-/* ===================== STEP 4: STORIES ===================== */
 function StepStories({ data, setData }) {
   const update = (i, patch) => setData(d => ({ ...d, stories: d.stories.map((s, j) => j === i ? { ...s, ...patch } : s) }));
   const remove = (i) => setData(d => ({ ...d, stories: d.stories.filter((_, j) => j !== i) }));
   const add = () => setData(d => ({ ...d, stories: [...d.stories, { id: `STAR_${d.stories.length + 1}`, tags: [], text: '' }] }));
-  const wc = (s) => s.trim().split(/\s+/).filter(Boolean).length;
 
   return (
     <div className="step wide">
@@ -369,22 +369,25 @@ function StepStories({ data, setData }) {
       <h1 className="step-title">Add a few experience stories</h1>
       <p className="step-subtitle">Each story is one project, role, or achievement in 40–80 words. Tag it so we can match it to relevant JDs.</p>
 
-      {data.stories.map((s, i) => (
-        <div key={i} className="story-card">
-          <div className="scrow">
-            <input className="text id-input" value={s.id} onChange={(e) => update(i, { id: e.target.value })} placeholder="STORY_ID"/>
-            <TagInput tags={s.tags} onChange={(tags) => update(i, { tags })}/>
-            {data.stories.length > 1 && (
-              <button className="trash" onClick={() => remove(i)} title="Remove story"><Icon name="trash" size={16}/></button>
-            )}
+      {data.stories.map((s, i) => {
+        const wc = wordCount(s.text);
+        return (
+          <div key={i} className="story-card">
+            <div className="scrow">
+              <input className="text id-input" value={s.id} onChange={(e) => update(i, { id: e.target.value })} placeholder="STORY_ID"/>
+              <TagInput tags={s.tags} onChange={(tags) => update(i, { tags })}/>
+              {data.stories.length > 1 && (
+                <button className="trash" onClick={() => remove(i)} title="Remove story"><Icon name="trash" size={16}/></button>
+              )}
+            </div>
+            <textarea className="text" rows="4" placeholder="Built X to solve Y. Used Z. Result: …" value={s.text} onChange={(e) => update(i, { text: e.target.value })}/>
+            <div className="meta-row">
+              <span></span>
+              <span className={`wc ${wc >= 40 && wc <= 80 ? 'good' : wc > 80 ? 'warn' : ''}`}>{wc} / 40–80 words</span>
+            </div>
           </div>
-          <textarea className="text" rows="4" placeholder="Built X to solve Y. Used Z. Result: …" value={s.text} onChange={(e) => update(i, { text: e.target.value })}/>
-          <div className="meta-row">
-            <span></span>
-            <span className={`wc ${wc(s.text) >= 40 && wc(s.text) <= 80 ? 'good' : wc(s.text) > 80 ? 'warn' : ''}`}>{wc(s.text)} / 40–80 words</span>
-          </div>
-        </div>
-      ))}
+        );
+      })}
 
       <button className="btn" onClick={add} style={{marginTop:8}}>
         <Icon name="plus" size={14}/>Add another story
@@ -416,9 +419,8 @@ function TagInput({ tags, onChange }) {
   );
 }
 
-/* ===================== STEP 5: VOICE ===================== */
 function StepVoice({ data, update }) {
-  const wc = data.voice.sample.trim().split(/\s+/).filter(Boolean).length;
+  const wc = wordCount(data.voice.sample);
   return (
     <div className="step">
       <div className="eyebrow">step 05 / 06 · voice <span className="badge-opt" style={{marginLeft:8}}>optional</span></div>
@@ -434,14 +436,13 @@ function StepVoice({ data, update }) {
   );
 }
 
-/* ===================== STEP 6: REVIEW ===================== */
 function StepReview({ data, setData, goto }) {
   const items = [
     { step: 0, label: 'Resume',  value: data.resume.file || (data.resume.template ? `Template: ${data.resume.template}` : data.resume.latex ? `${data.resume.latex.length} chars of LaTeX` : '—'), done: !!(data.resume.file || data.resume.template || data.resume.latex) },
-    { step: 1, label: 'JD',      value: data.jd.mode === 'url' ? data.jd.url : `${data.jd.text.trim().split(/\s+/).filter(Boolean).length} words pasted`, done: !!(data.jd.url || data.jd.text) },
+    { step: 1, label: 'JD',      value: data.jd.mode === 'url' ? data.jd.url : `${wordCount(data.jd.text)} words pasted`, done: !!(data.jd.url || data.jd.text) },
     { step: 2, label: 'Profile', value: `${data.profile.name} · ${data.profile.email}`, done: !!(data.profile.name && data.profile.email) },
     { step: 3, label: 'Stories', value: `${data.stories.filter(s => s.text.trim()).length} stories`, done: data.stories.some(s => s.text.trim()) },
-    { step: 4, label: 'Voice',   value: data.voice.sample ? `${data.voice.sample.trim().split(/\s+/).filter(Boolean).length} words` : 'skipped', done: true, skipped: !data.voice.sample },
+    { step: 4, label: 'Voice',   value: data.voice.sample ? `${wordCount(data.voice.sample)} words` : 'skipped', done: true, skipped: !data.voice.sample },
   ];
   return (
     <div className="step">
@@ -473,7 +474,6 @@ function StepReview({ data, setData, goto }) {
   );
 }
 
-/* ===================== GENERATION SCREEN ===================== */
 function GenerationScreen({ progress, fast }) {
   const STAGES = ['Parsing resume', 'Analyzing JD', 'Selecting stories', 'Tailoring bullets', 'Drafting cover letter', 'Building diff'];
   const pct = Math.min(100, ((progress.step + 1) / STAGES.length) * 100);
@@ -505,7 +505,7 @@ function GenerationScreen({ progress, fast }) {
 
 function Confetti() {
   const colors = ['#1a1a17', '#16a34a', '#dc2626', '#854d0e', '#8a8780'];
-  const pieces = Array.from({length: 28}, (_, i) => ({
+  const pieces = useMemo(() => Array.from({length: 28}, (_, i) => ({
     left: 50 + (Math.random() - 0.5) * 30 + '%',
     top: '50%',
     dx: ((Math.random() - 0.5) * 600) + 'px',
@@ -513,7 +513,7 @@ function Confetti() {
     rot: (Math.random() * 720 - 360) + 'deg',
     color: colors[i % colors.length],
     delay: (Math.random() * 100) + 'ms',
-  }));
+  })), []);
   return (
     <div className="confetti">
       {pieces.map((p, i) => (
@@ -523,7 +523,6 @@ function Confetti() {
   );
 }
 
-/* ===================== RESULTS ===================== */
 function ResultsScreen({ results, reset, data }) {
   const [tab, setTab] = useState('changes');
   const [editing, setEditing] = useState(false);
@@ -573,7 +572,7 @@ ${data.profile.name || 'Jialong Li'}`);
             {tab === 'cover' && (
               <Fragment>
                 <div className="tab-toolbar">
-                  <span style={{fontSize:12,color:'var(--ink-3)',fontFamily:'var(--mono)'}}>cover_letter.txt · {coverText.trim().split(/\s+/).filter(Boolean).length} words</span>
+                  <span style={{fontSize:12,color:'var(--ink-3)',fontFamily:'var(--mono)'}}>cover_letter.txt · {wordCount(coverText)} words</span>
                   <div className="right">
                     <button className="btn" style={{padding:'6px 12px',fontSize:12}} onClick={() => setEditing(e => !e)}><Icon name={editing ? 'check' : 'edit'} size={12}/>{editing ? 'Done' : 'Edit'}</button>
                     <button className="btn" style={{padding:'6px 12px',fontSize:12}} onClick={() => navigator.clipboard?.writeText(coverText)}><Icon name="copy" size={12}/>Copy</button>
@@ -583,9 +582,12 @@ ${data.profile.name || 'Jialong Li'}`);
                   <textarea className="text" style={{margin:24,width:'calc(100% - 48px)',border:'1px solid var(--line)'}} rows="18" value={coverText} onChange={(e) => setCoverText(e.target.value)}/>
                 ) : (
                   <div className="cover-letter">
-                    {coverText.split('\n\n').map((p, i) => (
-                      <p key={i} className={i === 0 ? 'salut' : i === coverText.split('\n\n').length - 1 ? 'sig' : ''}>{p}</p>
-                    ))}
+                    {(() => {
+                      const paras = coverText.split('\n\n');
+                      return paras.map((p, i) => (
+                        <p key={i} className={i === 0 ? 'salut' : i === paras.length - 1 ? 'sig' : ''}>{p}</p>
+                      ));
+                    })()}
                   </div>
                 )}
               </Fragment>
@@ -608,9 +610,7 @@ ${data.profile.name || 'Jialong Li'}`);
   );
 }
 
-/* ===================== TWEAKS PANEL ===================== */
 function Tweaks() {
-  const tweaks = window.useTweaks ? null : null; // dummy
   const [t, setT] = window.useTweaks(TWEAK_DEFAULTS);
   return (
     <window.TweaksPanel title="Tweaks" defaultPosition={{x: window.innerWidth - 280, y: 90}} width={260}>
@@ -631,7 +631,6 @@ function Tweaks() {
   );
 }
 
-/* ===================== MOUNT ===================== */
 function Root() {
   return (
     <Fragment>
