@@ -126,7 +126,7 @@ def pick_story(jd: str, stories: list[dict], model: str) -> dict | None:
     )
     chosen_id = llm.call(
         STORY_SELECTION_PROMPT.format(stories=stories_text, jd=jd[:1500]),
-        model, timeout=60,
+        model, timeout=120,
     ).strip().strip('"').strip("'")
     return next((s for s in stories if s["id"] == chosen_id), stories[0])
 
@@ -142,12 +142,12 @@ def generate_cover_letter(
     model: str,
     profile: dict,
     style_guide: str,
+    stories: list[dict] | None = None,
 ) -> str:
     name = profile.get("name", "Applicant")
 
-    # pick_story and resume_highlights are independent — run in parallel
     with ThreadPoolExecutor(max_workers=2) as pool:
-        story_future = pool.submit(pick_story, jd, load_stories(), model)
+        story_future = pool.submit(pick_story, jd, stories if stories is not None else load_stories(), model)
         highlights_future = pool.submit(
             llm.call,
             RESUME_HIGHLIGHTS_PROMPT.format(role=meta.role, company=meta.company, resume=resume_tex),

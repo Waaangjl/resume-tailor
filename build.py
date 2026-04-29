@@ -24,7 +24,7 @@ class JDMeta(NamedTuple):
 def extract_jd_meta(jd_text: str, model: str) -> JDMeta:
     """Ask LLM to extract company and role name from a job description."""
     try:
-        raw = llm.call(JD_META_PROMPT.format(jd=jd_text[:3000]), model, timeout=60)
+        raw = llm.call(JD_META_PROMPT.format(jd=jd_text[:3000]), model, timeout=120)
         m = re.search(r'\{[^}]+\}', raw)
         data = json.loads(m.group()) if m else {}
         return JDMeta(
@@ -133,7 +133,15 @@ def make_diff(original: str, modified: str) -> str:
 
 def _tex_to_plain(tex: str) -> str:
     """Strip LaTeX commands, return readable plain text for diffing."""
+    # Only process document body — preamble contains nothing diffable
+    begin = tex.find('\\begin{document}')
+    if begin != -1:
+        end = tex.rfind('\\end{document}')
+        tex = tex[begin + len('\\begin{document}'): end if end != -1 else None]
+
     tex = re.sub(r'%[^\n]*', '', tex)                                   # comments
+    tex = re.sub(r'\\begin\{[^}]+\}', '', tex)                          # \begin{env} — drop entirely
+    tex = re.sub(r'\\end\{[^}]+\}', '', tex)                            # \end{env} — drop entirely
     tex = re.sub(r'\\section\{([^}]+)\}', r'\n=== \1 ===\n', tex)      # section headings
     tex = re.sub(                                                         # job/edu subheadings
         r'\\resumeSubheading\{([^}]*)\}\{([^}]*)\}\{([^}]*)\}\{[^}]*\}',
@@ -145,7 +153,9 @@ def _tex_to_plain(tex: str) -> str:
     )
     tex = re.sub(r'\\resumeItem\{([^}]+)\}', r'  • \1', tex)            # bullets
     tex = re.sub(r'\\[a-zA-Z]+\*?\{([^}]*)\}', r'\1', tex)             # other {content} cmds
+    tex = re.sub(r'\[[^\]]*=[^\]]*\]', '', tex)                         # [key=val] option brackets
     tex = re.sub(r'\\[a-zA-Z@]+\*?', '', tex)                           # bare commands
+    tex = re.sub(r'\\\\', ' ', tex)                                      # \\ line breaks
     tex = re.sub(r'[{}$&#^_~]', '', tex)                                # special chars
     tex = re.sub(r'\n{3,}', '\n\n', tex)
     tex = re.sub(r'[ \t]+', ' ', tex)

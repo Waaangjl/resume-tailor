@@ -2,6 +2,12 @@
 
 import subprocess
 
+_ALIASES = {
+    "haiku":  "claude-haiku-4-5-20251001",
+    "sonnet": "claude-sonnet-4-6",
+    "opus":   "claude-opus-4-7",
+}
+
 
 class LLMError(RuntimeError):
     pass
@@ -15,9 +21,10 @@ def call(prompt: str, model: str, timeout: int = 600) -> str:
 
 
 def _claude_cli(prompt: str, model: str, timeout: int) -> str:
+    resolved = _ALIASES.get(model.lower(), model)
     cmd = ["claude", "-p", "--output-format", "text"]
-    if model.lower() not in ("claude", "default"):
-        cmd += ["--model", model]
+    if resolved.lower() not in ("claude", "default"):
+        cmd += ["--model", resolved]
     result = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=timeout)
     if result.returncode != 0:
         raise LLMError(f"claude -p error:\n{result.stderr.strip()}")

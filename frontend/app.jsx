@@ -17,11 +17,9 @@ const wordCount = (s) => s.trim().split(/\s+/).filter(Boolean).length;
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "step": 0,
-  "fastGen": false,
   "showSkips": true
 }/*EDITMODE-END*/;
 
-/* Validates whether the user can advance past the resume step */
 const RESUME_VALID = {
   scratch:  d => !!d.template,
   file:     d => !!d.file,
@@ -29,22 +27,32 @@ const RESUME_VALID = {
   previous: () => true,
 };
 
+function _load(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch { return fallback; }
+}
+
 function App() {
   const [tweaks, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
 
   const [data, setData] = useState({
     resume: { mode: null, file: null, template: null, latex: '' },
     jd:     { mode: 'url', url: '', text: '', fetched: false, fetchState: 'idle' },
-    profile:{ name: '', email: '', phone: '', location: '', linkedin: '', github: '', website: '' },
-    stories:[{ id: 'STAR_1', tags: [], text: '' }],
-    voice:  { sample: '' },
+    profile: _load('rt:profile', { name: '', email: '', phone: '', location: '', linkedin: '', github: '', website: '' }),
+    stories: _load('rt:stories', [{ id: 'STAR_1', tags: [], text: '' }]),
+    voice:   _load('rt:voice',   { sample: '' }),
     model:  'sonnet',
   });
   const update = (key, patch) => setData(d => ({ ...d, [key]: { ...d[key], ...patch } }));
 
+  useEffect(() => { localStorage.setItem('rt:profile', JSON.stringify(data.profile)); }, [data.profile]);
+  useEffect(() => { localStorage.setItem('rt:stories', JSON.stringify(data.stories)); }, [data.stories]);
+  useEffect(() => { localStorage.setItem('rt:voice',   JSON.stringify(data.voice));   }, [data.voice]);
+
   const [phase, setPhase] = useState('wizard'); // wizard | generating | results
-  const [progress, setProgress] = useState({ step: -1, sub: 0 });
+  const [progress, setProgress] = useState({ step: -1, label: '' });
   const [results, setResults] = useState(null);
+  const [genError, setGenError] = useState(null);
 
   const stepIdx = Math.min(tweaks.step, STEPS.length - 1);
   const goto = (i) => setTweak('step', Math.max(0, Math.min(STEPS.length - 1, i)));
@@ -52,29 +60,93 @@ function App() {
   const back = () => goto(stepIdx - 1);
 
   const timersRef = useRef([]);
+  const abortRef  = useRef(null);
   const clearTimers = () => { timersRef.current.forEach(clearTimeout); timersRef.current = []; };
-  useEffect(() => clearTimers, []); // clear on unmount
+  useEffect(() => clearTimers, []);
 
-  const startGen = () => {
+  const startGen = async () => {
     clearTimers();
+    if (abortRef.current) abortRef.current.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setGenError(null);
     setPhase('generating');
-    setProgress({ step: 0, sub: 0 });
-    const stepDelay = tweaks.fastGen ? 250 : 900;
-    const sequence = [
-      'Parsing resume…', 'Analyzing job description…', 'Selecting relevant stories…',
-      'Tailoring bullets…', 'Drafting cover letter…', 'Building diff…',
-    ];
-    sequence.forEach((_, i) => {
-      timersRef.current.push(setTimeout(() => setProgress({ step: i, sub: 0 }), i * stepDelay));
-    });
-    timersRef.current.push(setTimeout(() => {
-      setProgress({ step: sequence.length, sub: 0 });
-      setResults({ generatedAt: new Date() });
-      timersRef.current.push(setTimeout(() => setPhase('results'), 600));
-    }, sequence.length * stepDelay + 400));
+    setProgress({ step: -1, label: 'Starting…' });
+
+    const body = {
+      resume:  { latex: data.resume.latex },
+      jd:      { text: data.jd.text, url: data.jd.url },
+      profile: data.profile,
+      stories: data.stories,
+      voice:   data.voice,
+      model:   data.model,
+    };
+
+    try {
+      const resp = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const chunks = buf.split('\n\n');
+        buf = chunks.pop();
+        for (const chunk of chunks) {
+          if (!chunk.trim()) continue;
+          let evt = 'message', dataStr = '';
+          for (const line of chunk.split('\n')) {
+            if (line.startsWith('event: ')) evt = line.slice(7).trim();
+            if (line.startsWith('data: '))  dataStr = line.slice(6);
+          }
+          if (!dataStr) continue;
+          const payload = JSON.parse(dataStr);
+          if (evt === 'progress') {
+            setProgress({ step: payload.step, label: payload.label });
+          } else if (evt === 'done') {
+            setResults({
+              generatedAt: new Date(),
+              tailoredTex: payload.tailored_tex,
+              coverLetter: payload.cover_letter,
+              diffHtml:    payload.diff_html,
+              company:     payload.company,
+              role:        payload.role,
+            });
+            setProgress({ step: 5, label: 'Done' });
+            timersRef.current.push(setTimeout(() => setPhase('results'), 700));
+          } else if (evt === 'error') {
+            setGenError(payload.message);
+            setPhase('wizard');
+          }
+        }
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        setGenError(e.message || 'Generation failed. Is server.py running?');
+        setPhase('wizard');
+      }
+    } finally {
+      abortRef.current = null;
+    }
   };
 
-  const reset = () => { clearTimers(); setPhase('wizard'); setResults(null); goto(0); };
+  const reset = () => {
+    clearTimers();
+    if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
+    setGenError(null);
+    setPhase('wizard');
+    setResults(null);
+    goto(0);
+  };
 
   const canContinue = useMemo(() => {
     const id = STEPS[stepIdx].id;
@@ -102,12 +174,18 @@ function App() {
     </Fragment>
   );
 
-  if (phase === 'generating') return <GenerationScreen progress={progress} fast={tweaks.fastGen} />;
+  if (phase === 'generating') return <GenerationScreen progress={progress} model={data.model} />;
   if (phase === 'results')    return <ResultsScreen results={results} reset={reset} data={data} />;
 
   return (
     <Fragment>
       <ProgressHeader />
+      {genError && (
+        <div className="error-banner">
+          {genError}
+          <button onClick={() => setGenError(null)}>×</button>
+        </div>
+      )}
       <main className="stage">
         {STEPS[stepIdx].id === 'resume'  && <StepResume  data={data} update={update}/>}
         {STEPS[stepIdx].id === 'jd'      && <StepJD      data={data} update={update}/>}
@@ -144,6 +222,17 @@ function StepResume({ data, update }) {
 
   const choose = (m) => update('resume', { mode: m });
 
+  const readFile = (f) => {
+    if (!f) return;
+    if (f.name.endsWith('.tex')) {
+      const r = new FileReader();
+      r.onload = ev => update('resume', { file: f.name, latex: ev.target.result });
+      r.readAsText(f);
+    } else {
+      update('resume', { file: f.name });
+    }
+  };
+
   const TEMPLATES = [
     { id: 'classic',  name: 'Classic',  desc: 'Times-style, single column' },
     { id: 'modern',   name: 'Modern',   desc: 'Sans-serif, clear hierarchy' },
@@ -161,7 +250,7 @@ function StepResume({ data, update }) {
             <span className="gly"><Icon name="file" size={20}/></span>
             <div className="body">
               <p className="title">Upload an existing resume</p>
-              <p className="desc">PDF, DOCX, or .tex — we'll extract structure.</p>
+              <p className="desc">Drop a .tex file — we'll extract structure.</p>
             </div>
             <Icon name="arrow-right" size={16} className="arrow"/>
           </button>
@@ -203,19 +292,19 @@ function StepResume({ data, update }) {
       {mode === 'file' && (
         <Fragment>
           <h1 className="step-title">Upload your resume</h1>
-          <p className="step-subtitle">PDF, DOCX, or LaTeX source. We'll extract the structure.</p>
+          <p className="step-subtitle">.tex file (LaTeX source). Drop it below.</p>
           <div
             className={`dropzone ${drag ? 'over' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
             onDragLeave={() => setDrag(false)}
-            onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) update('resume', { file: f.name }); }}
+            onDrop={(e) => { e.preventDefault(); setDrag(false); readFile(e.dataTransfer.files[0]); }}
             onClick={() => fileRef.current.click()}
             style={{ cursor: 'pointer' }}
           >
-            <input type="file" ref={fileRef} hidden accept=".pdf,.docx,.tex" onChange={(e) => e.target.files[0] && update('resume', { file: e.target.files[0].name })}/>
+            <input type="file" ref={fileRef} hidden accept=".tex" onChange={(e) => readFile(e.target.files[0])}/>
             <Icon name="upload" size={28} style={{ color: 'var(--ink-3)' }}/>
-            <p style={{margin:'12px 0 4px',fontSize:14,color:'var(--ink)'}}>Drop your file here</p>
-            <p style={{margin:0,fontSize:12,color:'var(--ink-3)'}}>or click to browse · pdf · docx · tex</p>
+            <p style={{margin:'12px 0 4px',fontSize:14,color:'var(--ink)'}}>Drop your .tex file here</p>
+            <p style={{margin:0,fontSize:12,color:'var(--ink-3)'}}>or click to browse · tex only</p>
             {data.resume.file && <p className="filename">✓ {data.resume.file}</p>}
           </div>
         </Fragment>
@@ -273,18 +362,31 @@ function StepResume({ data, update }) {
 }
 
 function StepJD({ data, update }) {
-  const fetchUrl = () => {
+  const fetchUrl = async () => {
     update('jd', { fetchState: 'fetch' });
-    setTimeout(() => {
-      update('jd', { fetchState: 'ok', fetched: true, text: '[Sample JD] Senior Research Engineer\n\nWe are looking for someone with experience in...' });
-    }, 1100);
+    try {
+      const resp = await fetch('/api/fetch-jd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: data.jd.url }),
+      });
+      const json = await resp.json();
+      if (json.ok) {
+        update('jd', { fetchState: 'ok', fetched: true, text: json.text });
+      } else {
+        update('jd', { fetchState: 'err', fetched: false });
+      }
+    } catch {
+      update('jd', { fetchState: 'err', fetched: false });
+    }
   };
+
   const tooShort = data.jd.mode === 'text' && data.jd.text.trim().length > 0 && data.jd.text.trim().length < 200;
   return (
     <div className="step">
       <div className="eyebrow">step 02 / 06 · job description</div>
       <h1 className="step-title">Paste the job description</h1>
-      <p className="step-subtitle">A URL works if the page is publicly accessible. Otherwise paste the full text.</p>
+      <p className="step-subtitle">A URL works if the page is publicly accessible (Workday JDs supported). Otherwise paste the full text.</p>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
         <div className="pill-toggle">
           <button className={data.jd.mode==='url'?'active':''}  onClick={() => update('jd',{mode:'url'})}>URL</button>
@@ -301,9 +403,9 @@ function StepJD({ data, update }) {
           </div>
           <div className="meta-row" style={{justifyContent:'flex-start'}}>
             <span><span className={`status-dot ${data.jd.fetchState}`}/>
-              {data.jd.fetchState === 'idle' && 'idle'}
+              {data.jd.fetchState === 'idle' && 'idle — paste URL and hit Fetch, or just Continue to let the server fetch during generation'}
               {data.jd.fetchState === 'fetch' && 'fetching…'}
-              {data.jd.fetchState === 'ok' && 'fetched · 1.2 kb'}
+              {data.jd.fetchState === 'ok' && `fetched · ${(data.jd.text.length / 1024).toFixed(1)} kb`}
               {data.jd.fetchState === 'err' && 'failed — paste text instead'}
             </span>
           </div>
@@ -448,7 +550,7 @@ function StepReview({ data, setData, goto }) {
     <div className="step">
       <div className="eyebrow">step 06 / 06 · review</div>
       <h1 className="step-title">Looks good?</h1>
-      <p className="step-subtitle">Review your inputs, then generate. This usually takes 30–60 seconds.</p>
+      <p className="step-subtitle">Review your inputs, then generate. This usually takes 30–90 seconds.</p>
       <ul className="summary">
         {items.map(it => (
           <li key={it.step}>
@@ -474,14 +576,20 @@ function StepReview({ data, setData, goto }) {
   );
 }
 
-function GenerationScreen({ progress, fast }) {
-  const STAGES = ['Parsing resume', 'Analyzing JD', 'Selecting stories', 'Tailoring bullets', 'Drafting cover letter', 'Building diff'];
-  const pct = Math.min(100, ((progress.step + 1) / STAGES.length) * 100);
+function GenerationScreen({ progress, model }) {
+  const STAGES = [
+    'Fetching job description',
+    'Extracting job metadata',
+    'Tailoring resume',
+    'Building diff',
+    'Writing cover letter',
+  ];
+  const pct = progress.step < 0 ? 2 : Math.min(100, ((progress.step + 1) / STAGES.length) * 100);
   return (
     <div className="gen-stage">
       <div className="gen-card">
         <h1 className="gen-headline">Tailoring your resume</h1>
-        <p className="gen-note">claude-3.5-sonnet · {fast ? '~10s' : '~45s'}</p>
+        <p className="gen-note">{model} · usually 30–90s</p>
         <div className="feed">
           {STAGES.map((s, i) => {
             const state = i < progress.step ? 'done' : i === progress.step ? 'active' : 'pending';
@@ -523,19 +631,78 @@ function Confetti() {
   );
 }
 
+function PDFTab({ tailoredTex, downloadFile }) {
+  const [state, setState] = useState('idle'); // idle | loading | done | error
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [errMsg, setErrMsg] = useState('');
+
+  useEffect(() => {
+    if (!tailoredTex) return;
+    setState('loading');
+    let url = null;
+    fetch('/api/compile-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ latex: tailoredTex }),
+    })
+      .then(resp => {
+        if (!resp.ok) return resp.json().then(j => { throw new Error(j.error || `HTTP ${resp.status}`); });
+        return resp.blob();
+      })
+      .then(blob => {
+        url = URL.createObjectURL(blob);
+        setPdfUrl(url);
+        setState('done');
+      })
+      .catch(e => { setErrMsg(e.message); setState('error'); });
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [tailoredTex]);
+
+  return (
+    <Fragment>
+      <div className="tab-toolbar">
+        <span style={{fontSize:12,color:'var(--ink-3)',fontFamily:'var(--mono)'}}>
+          {state === 'loading' && 'Compiling PDF…'}
+          {state === 'done'    && 'resume.pdf · compiled with pdflatex'}
+          {state === 'error'   && `Compilation failed: ${errMsg}`}
+          {state === 'idle'    && 'PDF preview'}
+        </span>
+        <div className="right">
+          {pdfUrl && (
+            <a className="btn" style={{padding:'6px 12px',fontSize:12,textDecoration:'none'}} href={pdfUrl} download="resume.pdf">
+              <Icon name="download" size={12}/>resume.pdf
+            </a>
+          )}
+          <button className="btn" style={{padding:'6px 12px',fontSize:12}}
+            onClick={() => downloadFile('resume.tex', tailoredTex)}>
+            <Icon name="download" size={12}/>resume.tex
+          </button>
+        </div>
+      </div>
+      {state === 'loading' && <div className="pdf-mock">Compiling with pdflatex… this takes ~10s</div>}
+      {state === 'error'   && <div className="pdf-mock" style={{color:'var(--sub-fg)'}}>{errMsg}<br/><br/>Download the .tex and open in Overleaf instead.</div>}
+      {state === 'done' && pdfUrl && (
+        <iframe className="embed" src={pdfUrl} title="PDF preview" style={{border:'none'}}/>
+      )}
+    </Fragment>
+  );
+}
+
 function ResultsScreen({ results, reset, data }) {
   const [tab, setTab] = useState('changes');
   const [editing, setEditing] = useState(false);
-  const [coverText, setCoverText] = useState(`Dear hiring team,
+  const [coverText, setCoverText] = useState(results?.coverLetter || '');
 
-I'm applying for the Senior Research Engineer role. Over the past three years I've built and shipped ML systems at scale — most recently leading a project that cut inference latency by 38% while improving accuracy on a key benchmark.
+  const downloadFile = (filename, content) => {
+    const url = URL.createObjectURL(new Blob([content]));
+    const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
-What draws me to this role specifically is the focus on alignment research and the rigor your team brings to it. I'd love to bring my experience with distributed training, evaluation frameworks, and a habit of writing clearly to the work you're doing.
-
-Happy to share more in conversation.
-
-Best,
-${data.profile.name || 'Jialong Li'}`);
+  const company = results?.company || '';
+  const role    = results?.role    || '';
+  const label   = [company, role].filter(Boolean).join(' · ') || 'tailored';
 
   return (
     <Fragment>
@@ -554,19 +721,29 @@ ${data.profile.name || 'Jialong Li'}`);
               <button className={tab==='cover'?'active':''}   onClick={() => setTab('cover')}><Icon name="file-text" size={14}/>Cover Letter</button>
               <button className={tab==='pdf'?'active':''}     onClick={() => setTab('pdf')}><Icon name="eye" size={14}/>PDF preview</button>
             </div>
-            <button className="btn primary"><Icon name="download" size={14}/>Download all (.zip)</button>
+            <button className="btn primary" onClick={() => downloadFile('resume.tex', results?.tailoredTex || '')}>
+              <Icon name="download" size={14}/>Download .tex
+            </button>
           </div>
 
           <div className="tab-panel">
             {tab === 'changes' && (
               <Fragment>
                 <div className="tab-toolbar">
-                  <span style={{fontSize:12,color:'var(--ink-3)',fontFamily:'var(--mono)'}}>resume.tex · 12 inserts · 8 removals</span>
+                  <span style={{fontSize:12,color:'var(--ink-3)',fontFamily:'var(--mono)'}}>{label} · resume.tex</span>
                   <div className="right">
-                    <button className="btn" style={{padding:'6px 12px',fontSize:12}}><Icon name="download" size={12}/>resume.tex</button>
+                    <button className="btn" style={{padding:'6px 12px',fontSize:12}}
+                      onClick={() => downloadFile('resume.tex', results?.tailoredTex || '')}>
+                      <Icon name="download" size={12}/>resume.tex
+                    </button>
                   </div>
                 </div>
-                <iframe className="embed" src="resume_diff_preview.html" title="Resume diff"/>
+                <iframe
+                  className="embed"
+                  srcDoc={results?.diffHtml || '<p style="padding:24px;color:#888">No diff available.</p>'}
+                  title="Resume diff"
+                  sandbox="allow-same-origin"
+                />
               </Fragment>
             )}
             {tab === 'cover' && (
@@ -575,6 +752,7 @@ ${data.profile.name || 'Jialong Li'}`);
                   <span style={{fontSize:12,color:'var(--ink-3)',fontFamily:'var(--mono)'}}>cover_letter.txt · {wordCount(coverText)} words</span>
                   <div className="right">
                     <button className="btn" style={{padding:'6px 12px',fontSize:12}} onClick={() => setEditing(e => !e)}><Icon name={editing ? 'check' : 'edit'} size={12}/>{editing ? 'Done' : 'Edit'}</button>
+                    <button className="btn" style={{padding:'6px 12px',fontSize:12}} onClick={() => downloadFile('cover_letter.txt', coverText)}><Icon name="download" size={12}/>Download</button>
                     <button className="btn" style={{padding:'6px 12px',fontSize:12}} onClick={() => navigator.clipboard?.writeText(coverText)}><Icon name="copy" size={12}/>Copy</button>
                   </div>
                 </div>
@@ -593,15 +771,7 @@ ${data.profile.name || 'Jialong Li'}`);
               </Fragment>
             )}
             {tab === 'pdf' && (
-              <Fragment>
-                <div className="tab-toolbar">
-                  <span style={{fontSize:12,color:'var(--ink-3)',fontFamily:'var(--mono)'}}>resume.pdf · 1 page · compiled with pdflatex</span>
-                  <div className="right">
-                    <button className="btn" style={{padding:'6px 12px',fontSize:12}}><Icon name="download" size={12}/>resume.pdf</button>
-                  </div>
-                </div>
-                <div className="pdf-mock">[ PDF preview rendered here after backend compile ]</div>
-              </Fragment>
+              <PDFTab tailoredTex={results?.tailoredTex || ''} downloadFile={downloadFile} />
             )}
           </div>
         </div>
@@ -623,8 +793,7 @@ function Tweaks() {
           ))}
         </div>
       </window.TweakSection>
-      <window.TweakSection title="Demo">
-        <window.TweakToggle label="Fast generation" value={t.fastGen} onChange={(v) => setT('fastGen', v)}/>
+      <window.TweakSection title="Options">
         <window.TweakToggle label="Show 'clear' shortcut on optional fields" value={t.showSkips} onChange={(v) => setT('showSkips', v)}/>
       </window.TweakSection>
     </window.TweaksPanel>
