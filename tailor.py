@@ -123,6 +123,8 @@ def load_stories() -> list[dict]:
 def pick_story(jd: str, stories: list[dict], model: str) -> dict | None:
     if not stories:
         return None
+    if len(stories) == 1:
+        return stories[0]
     stories_text = "\n\n".join(
         f"id: {s['id']}\ntags: {s.get('tags', [])}\ntext: {s['text'].strip()}"
         for s in stories
