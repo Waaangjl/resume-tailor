@@ -13,7 +13,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 
 import build
 import fetch as fetch_mod
-from tailor import DEFAULT_STYLE, generate_cover_letter, tailor_resume
+from tailor import DEFAULT_STYLE, draft_stories, generate_cover_letter, tailor_resume
 
 app = Flask(__name__)
 
@@ -59,6 +59,29 @@ def api_fetch_jd():
     if not text.strip():
         return jsonify({"ok": False, "error": "Page returned no readable text — paste the JD directly."})
     return jsonify({"ok": True, "text": text})
+
+
+@app.route("/api/draft-stories", methods=["POST"])
+def api_draft_stories():
+    body       = request.json or {}
+    resume_tex = (body.get("resume", {}).get("latex", "") or "").strip()
+    jd_data    = body.get("jd", {})
+    jd_text    = (jd_data.get("text", "") or "").strip()
+    model      = body.get("model", "sonnet")
+
+    if not resume_tex:
+        return jsonify({"ok": False, "error": "Need a resume (LaTeX) before drafting stories."}), 400
+
+    try:
+        if not jd_text and jd_data.get("url"):
+            jd_text = fetch_mod.get_jd(jd_data["url"])
+        stories = draft_stories(resume_tex, jd_text, model)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    if not stories:
+        return jsonify({"ok": False, "error": "Could not draft stories — try again or write your own."}), 500
+    return jsonify({"ok": True, "stories": stories})
 
 
 def _evt(event: str, **data) -> str:

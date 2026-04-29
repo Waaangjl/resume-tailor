@@ -105,6 +105,44 @@ WRITING SAMPLES:
 {samples}"""
 
 # ---------------------------------------------------------------------------
+# Story drafting — generate candidate stories from the resume when the user
+# hasn't written any yet
+# ---------------------------------------------------------------------------
+
+STORY_DRAFT_PROMPT = """\
+You are drafting candidate cover-letter opening stories for a job applicant who
+has not written any of their own yet. Use ONLY facts from their resume below;
+the JD is context for which experiences to emphasize.
+
+STRICT RULES:
+1. Use ONLY experiences, projects, metrics, companies, and dates that appear in
+   the resume. Do NOT invent anything.
+2. Each story is one specific moment — a project, a decision, a finding, a
+   tradeoff — not a general claim about the person.
+3. Each story is 50-80 words, 2-4 sentences. No bullet points.
+4. Write in first person, plain prose, no markdown.
+5. Do NOT use any of these words: leverage, passionate, dedicated, results-driven,
+   fast-paced, innovative, holistic, synergies, impactful, spearheaded.
+6. Generate TWO distinct stories highlighting different experiences. Each gets
+   2-3 short tags from this list (lowercase, no spaces): research, engineering,
+   data, ml, leadership, finance, consulting, strategy, startup, policy, product.
+7. Mark each story with id "draft_1" and "draft_2".
+8. The user will edit them, so leave anything you're unsure about as a clearly
+   editable placeholder in [brackets] rather than fabricating.
+
+Return ONLY a JSON array, no preamble, no markdown fences:
+[
+  {{"id": "draft_1", "tags": ["...", "..."], "text": "..."}},
+  {{"id": "draft_2", "tags": ["...", "..."], "text": "..."}}
+]
+
+=== RESUME ===
+{resume}
+
+=== JOB DESCRIPTION ===
+{jd}"""
+
+# ---------------------------------------------------------------------------
 # Story selection — pick the best story from the bank for a given JD
 # ---------------------------------------------------------------------------
 

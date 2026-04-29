@@ -9,6 +9,8 @@ Usage:
 """
 
 import argparse
+import json
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -26,6 +28,7 @@ from prompts import (
     RESUME_HIGHLIGHTS_PROMPT,
     RESUME_SYSTEM,
     RESUME_USER,
+    STORY_DRAFT_PROMPT,
     STORY_SELECTION_PROMPT,
     STYLE_EXTRACTION_PROMPT,
 )
@@ -129,6 +132,33 @@ def pick_story(jd: str, stories: list[dict], model: str) -> dict | None:
         model, timeout=120,
     ).strip().strip('"').strip("'")
     return next((s for s in stories if s["id"] == chosen_id), stories[0])
+
+
+def draft_stories(resume_tex: str, jd_text: str, model: str) -> list[dict]:
+    """Draft candidate STAR stories from a resume + JD, for users who haven't
+    written any of their own yet. Returns a list of {id, tags, text} dicts."""
+    raw = llm.call(
+        STORY_DRAFT_PROMPT.format(resume=resume_tex, jd=jd_text[:3000]),
+        model, timeout=180,
+    )
+    m = re.search(r"\[\s*\{.*\}\s*\]", raw, re.S)
+    if not m:
+        raise LLMError("Could not parse drafted stories — try again.")
+    try:
+        items = json.loads(m.group())
+    except json.JSONDecodeError as e:
+        raise LLMError("Could not parse drafted stories — try again.") from e
+    out = []
+    for i, s in enumerate(items, 1):
+        text = (s.get("text") or "").strip()
+        if not text:
+            continue
+        out.append({
+            "id":   s.get("id") or f"draft_{i}",
+            "tags": [t for t in (s.get("tags") or []) if isinstance(t, str)],
+            "text": text,
+        })
+    return out
 
 
 # ---------------------------------------------------------------------------

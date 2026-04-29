@@ -77,7 +77,7 @@ function App() {
       resume:  { latex: data.resume.latex },
       jd:      { text: data.jd.text, url: data.jd.url },
       profile: data.profile,
-      stories: data.stories,
+      stories: data.stories.map(({ _draft, ...s }) => s),
       voice:   data.voice,
       model:   data.model,
     };
@@ -461,9 +461,48 @@ function StepProfile({ data, update, showSkips }) {
 }
 
 function StepStories({ data, setData }) {
-  const update = (i, patch) => setData(d => ({ ...d, stories: d.stories.map((s, j) => j === i ? { ...s, ...patch } : s) }));
+  const [drafting, setDrafting] = useState(false);
+  const [draftErr, setDraftErr] = useState('');
+
+  const update = (i, patch) => setData(d => ({
+    ...d,
+    stories: d.stories.map((s, j) => {
+      if (j !== i) return s;
+      const next = { ...s, ...patch };
+      if ('text' in patch && patch.text !== s.text) next._draft = false;
+      return next;
+    }),
+  }));
   const remove = (i) => setData(d => ({ ...d, stories: d.stories.filter((_, j) => j !== i) }));
-  const add = () => setData(d => ({ ...d, stories: [...d.stories, { id: `STAR_${d.stories.length + 1}`, tags: [], text: '' }] }));
+  const add    = () => setData(d => ({ ...d, stories: [...d.stories, { id: `STAR_${d.stories.length + 1}`, tags: [], text: '' }] }));
+
+  const allEmpty  = data.stories.every(s => !s.text.trim());
+  const hasResume = !!(data.resume.latex && data.resume.latex.trim());
+  const hasJd     = !!((data.jd.text && data.jd.text.trim()) || (data.jd.url && data.jd.url.trim()));
+
+  const draftFromResume = async () => {
+    setDrafting(true);
+    setDraftErr('');
+    try {
+      const resp = await fetch('/api/draft-stories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resume: { latex: data.resume.latex },
+          jd:     { text: data.jd.text, url: data.jd.url },
+          model:  data.model,
+        }),
+      });
+      const json = await resp.json();
+      if (!json.ok) throw new Error(json.error || 'Could not draft stories');
+      const drafts = json.stories.map(s => ({ ...s, _draft: true }));
+      setData(d => ({ ...d, stories: drafts.length ? drafts : d.stories }));
+    } catch (e) {
+      setDraftErr(e.message || 'Network error — is server.py running?');
+    } finally {
+      setDrafting(false);
+    }
+  };
 
   return (
     <div className="step wide">
@@ -471,10 +510,39 @@ function StepStories({ data, setData }) {
       <h1 className="step-title">Add a few experience stories</h1>
       <p className="step-subtitle">Each story is one project, role, or achievement in 40–80 words. Tag it so we can match it to relevant JDs.</p>
 
+      {allEmpty && (
+        <div className="draft-hero">
+          <div className="draft-hero-body">
+            <div className="draft-hero-title">No stories yet? We'll draft them.</div>
+            <div className="softnote" style={{marginTop:0}}>
+              Two starter stories, pulled from your resume{hasJd ? ' and the JD' : ''}.
+              You edit before continuing — what you keep is what we use.
+            </div>
+            {!hasResume && <div className="warn-note" style={{marginTop:10}}>Pick a resume in step 01 first — we need it to draft.</div>}
+            {draftErr && <div className="warn-note" style={{marginTop:10,background:'var(--sub-bg)',color:'var(--sub-fg)'}}>{draftErr}</div>}
+          </div>
+          <button
+            className="btn primary lg"
+            onClick={draftFromResume}
+            disabled={!hasResume || drafting}
+          >
+            {drafting
+              ? <Fragment><span className="dots"><span>.</span><span>.</span><span>.</span></span>Drafting</Fragment>
+              : <Fragment><Icon name="sparkles" size={14}/>Draft from my resume</Fragment>}
+          </button>
+        </div>
+      )}
+
       {data.stories.map((s, i) => {
         const wc = wordCount(s.text);
         return (
-          <div key={i} className="story-card">
+          <div key={i} className={`story-card ${s._draft ? 'is-draft' : ''}`}>
+            {s._draft && (
+              <div className="draft-banner">
+                <Icon name="sparkles" size={12}/>
+                <span>Drafted from your resume — edit anything; this becomes your story.</span>
+              </div>
+            )}
             <div className="scrow">
               <input className="text id-input" value={s.id} onChange={(e) => update(i, { id: e.target.value })} placeholder="STORY_ID"/>
               <TagInput tags={s.tags} onChange={(tags) => update(i, { tags })}/>

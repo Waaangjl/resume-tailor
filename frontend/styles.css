@@ -262,6 +262,24 @@ textarea.mono { font-family: var(--mono); font-size: 12.5px; line-height: 1.6; }
 
 .softnote { font-size: 12.5px; color: var(--ink-3); margin-top: 12px; line-height: 1.55; }
 
+/* draft-from-resume hero */
+.draft-hero {
+  display: flex; align-items: center; gap: 20px;
+  padding: 18px 20px; margin-bottom: 18px;
+  border: 1px dashed var(--line-2); border-radius: 12px;
+  background: var(--add-bg-soft);
+}
+.draft-hero-body { flex: 1; }
+.draft-hero-title { font-size: 14px; font-weight: 500; color: var(--ink); margin-bottom: 4px; }
+
+/* draft banner inside a story card */
+.story-card.is-draft { border-color: var(--add-fg); background: var(--add-bg-soft); }
+.draft-banner {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--add-fg); font-family: var(--mono);
+  letter-spacing: .04em; margin-bottom: 12px;
+}
+
 /* story card */
 .story-card { padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); margin-bottom: 12px; }
 .story-card .scrow { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
