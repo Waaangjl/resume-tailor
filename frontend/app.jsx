@@ -32,6 +32,8 @@ function _load(key, fallback) {
   catch { return fallback; }
 }
 
+const PERSIST_KEYS = ['rt:profile', 'rt:stories', 'rt:voice'];
+
 function App() {
   const [tweaks, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
 
@@ -48,6 +50,16 @@ function App() {
   useEffect(() => { localStorage.setItem('rt:profile', JSON.stringify(data.profile)); }, [data.profile]);
   useEffect(() => { localStorage.setItem('rt:stories', JSON.stringify(data.stories)); }, [data.stories]);
   useEffect(() => { localStorage.setItem('rt:voice',   JSON.stringify(data.voice));   }, [data.voice]);
+
+  const clearMemory = () => {
+    PERSIST_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+    setData(d => ({
+      ...d,
+      profile: { name: '', email: '', phone: '', location: '', linkedin: '', github: '', website: '' },
+      stories: [{ id: 'STAR_1', tags: [], text: '' }],
+      voice:   { sample: '' },
+    }));
+  };
 
   const [phase, setPhase] = useState('wizard'); // wizard | generating | results
   const [progress, setProgress] = useState({ step: -1, label: '' });
@@ -157,6 +169,11 @@ function App() {
     return true;
   }, [stepIdx, data]);
 
+  const hasMemory = useMemo(
+    () => !!(data.profile.name || data.stories.some(s => s.text.trim()) || data.voice.sample),
+    [data.profile.name, data.stories, data.voice.sample]
+  );
+
   const ProgressHeader = () => (
     <Fragment>
       <div className="progress-rail"><div className="progress-fill" style={{ width: `${(stepIdx / (STEPS.length - 1)) * 100}%` }} /></div>
@@ -169,7 +186,16 @@ function App() {
             </button>
           ))}
         </div>
-        <button className="skip" onClick={reset}>start over</button>
+        <div style={{display:'flex', gap:14, alignItems:'center'}}>
+          {hasMemory && (
+            <button
+              className="skip"
+              title="Profile, stories, and voice sample are saved in this browser. Click to forget."
+              onClick={() => { if (confirm('Forget saved profile, stories, and voice sample?')) clearMemory(); }}
+            >clear memory</button>
+          )}
+          <button className="skip" onClick={reset}>start over</button>
+        </div>
       </div>
     </Fragment>
   );
@@ -191,7 +217,7 @@ function App() {
         {STEPS[stepIdx].id === 'jd'      && <StepJD      data={data} update={update}/>}
         {STEPS[stepIdx].id === 'profile' && <StepProfile data={data} update={update} showSkips={tweaks.showSkips}/>}
         {STEPS[stepIdx].id === 'stories' && <StepStories data={data} setData={setData}/>}
-        {STEPS[stepIdx].id === 'voice'   && <StepVoice   data={data} update={update}/>}
+        {STEPS[stepIdx].id === 'voice'   && <StepVoice   data={data} update={update} setData={setData}/>}
         {STEPS[stepIdx].id === 'review'  && <StepReview  data={data} setData={setData} goto={goto}/>}
       </main>
       <footer className="footer-nav">
@@ -589,8 +615,32 @@ function TagInput({ tags, onChange }) {
   );
 }
 
-function StepVoice({ data, update }) {
+// Per-file and aggregate caps so a stray binary or huge log doesn't blow
+// the localStorage quota or freeze the textarea on every render.
+const VOICE_FILE_MAX = 200_000;   // 200 KB per file
+const VOICE_TOTAL_MAX = 800_000;  // 800 KB joined cap
+
+function StepVoice({ data, update, setData }) {
   const wc = wordCount(data.voice.sample);
+  const onFiles = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    const accepted = files.filter(f => f.size > 0 && f.size <= VOICE_FILE_MAX);
+    const skipped = files.length - accepted.length;
+    if (!accepted.length) {
+      if (skipped) alert(`Skipped ${skipped} file(s): each must be ≤ ${VOICE_FILE_MAX/1000}KB of text.`);
+      return;
+    }
+    const texts = await Promise.all(accepted.map(f => f.text()));
+    const joined = texts.join('\n\n---\n\n');
+    // Functional update so we don't clobber edits the user makes while files load.
+    setData(d => {
+      const existing = d.voice.sample.trim();
+      const merged = (existing ? `${existing}\n\n---\n\n${joined}` : joined).slice(0, VOICE_TOTAL_MAX);
+      return { ...d, voice: { ...d.voice, sample: merged } };
+    });
+    if (skipped) alert(`Skipped ${skipped} file(s) over ${VOICE_FILE_MAX/1000}KB.`);
+  };
   return (
     <div className="step">
       <div className="eyebrow">step 05 / 06 · voice <span className="badge-opt" style={{marginLeft:8}}>optional</span></div>
@@ -601,7 +651,16 @@ function StepVoice({ data, update }) {
         <span>{wc} words</span>
         <span>{wc >= 80 ? 'good signal' : wc > 0 ? 'a bit short — more helps' : ''}</span>
       </div>
-      <p className="softnote">Skip this if you'd rather use the default Claude voice. You can always come back.</p>
+      <div style={{display:'flex', gap:10, marginTop:10}}>
+        <label className="btn">
+          <Icon name="upload" size={14}/> Upload .txt / .md
+          <input type="file" multiple accept=".txt,.md,text/plain,text/markdown" style={{display:'none'}} onChange={onFiles}/>
+        </label>
+        {data.voice.sample && (
+          <button className="btn ghost" onClick={() => update('voice', { sample: '' })}>Clear sample</button>
+        )}
+      </div>
+      <p className="softnote">Multiple files are appended. Your sample is remembered locally for next session — skip and come back any time.</p>
     </div>
   );
 }
