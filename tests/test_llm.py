@@ -66,7 +66,8 @@ class TestClaudeCli:
             _claude_cli("prompt", "opus", timeout=30)
         cmd = mock_run.call_args[0][0]
         assert "--model" in cmd
-        assert "opus" in cmd
+        # alias "opus" is resolved to a dated ID like "claude-opus-4-7"
+        assert any("opus" in arg for arg in cmd)
 
     def test_skips_model_flag_for_default(self):
         mock_result = MagicMock(returncode=0, stdout="ok", stderr="")
