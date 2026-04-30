@@ -6,6 +6,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from datetime import datetime
 from functools import lru_cache
@@ -73,30 +74,88 @@ def _find_latex() -> str | None:
     return None
 
 
-def compile_pdf(tex_path: Path) -> Path | None:
-    """Compile .tex to PDF. Returns PDF path, or None if LaTeX not installed."""
+def _compile_tex(tex_text: str, tmp_path: Path, passes: int = 1) -> Path | None:
+    """Run pdflatex `passes` times. Returns produced PDF path inside tmp_path, or None.
+
+    On failure, surfaces the first LaTeX error line (`! ...`) to stderr so the user
+    knows whether the LLM produced broken markup vs. pdflatex being missing.
+    """
     compiler = _find_latex()
     if not compiler:
         return None
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-        shutil.copy(tex_path, tmp_path / tex_path.name)
-        try:
-            for _ in range(2):  # two passes so cross-references resolve
-                subprocess.run(
-                    [compiler, "-interaction=nonstopmode", tex_path.name],
-                    cwd=tmp_path,
-                    capture_output=True,
-                    timeout=60,
-                )
-            pdf_tmp = tmp_path / tex_path.with_suffix(".pdf").name
-            if pdf_tmp.exists():
-                pdf_out = tex_path.with_suffix(".pdf")
-                shutil.copy(pdf_tmp, pdf_out)
-                return pdf_out
-        except Exception:
-            pass
+    (tmp_path / "doc.tex").write_text(tex_text, encoding="utf-8")
+    last_proc = None
+    try:
+        for _ in range(passes):
+            last_proc = subprocess.run(
+                [compiler, "-interaction=nonstopmode", "doc.tex"],
+                cwd=tmp_path, capture_output=True, text=True, timeout=60,
+            )
+    except Exception as e:
+        sys.stderr.write(f"  latex  : {type(e).__name__}: {e}\n")
+        return None
+    pdf = tmp_path / "doc.pdf"
+    if pdf.exists():
+        return pdf
+    if last_proc is not None:
+        for line in (last_proc.stdout or "").splitlines():
+            if line.startswith("! "):
+                sys.stderr.write(f"  latex  : {line.strip()}\n")
+                break
     return None
+
+
+def compile_pdf(tex_path: Path) -> Path | None:
+    """Compile .tex to PDF. Returns PDF path, or None if LaTeX not installed."""
+    with tempfile.TemporaryDirectory() as tmp:
+        # two passes so cross-references resolve in the published artifact
+        pdf = _compile_tex(tex_path.read_text(encoding="utf-8"), Path(tmp), passes=2)
+        if pdf is None:
+            return None
+        out = tex_path.with_suffix(".pdf")
+        shutil.copy(pdf, out)
+        return out
+
+
+# ---------------------------------------------------------------------------
+# PDF metrics
+# ---------------------------------------------------------------------------
+
+def pdf_metrics(pdf_path: Path) -> tuple[int, list[int]] | None:
+    """Return (page_count, non_blank_line_counts_per_page) or None if pdftotext missing."""
+    pdftotext = shutil.which("pdftotext")
+    if not pdftotext:
+        return None
+    try:
+        out = subprocess.run(
+            [pdftotext, "-layout", str(pdf_path), "-"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except Exception:
+        return None
+    if out.returncode != 0:
+        return None
+    counts = [sum(1 for ln in p.splitlines() if ln.strip()) for p in out.stdout.split("\f")]
+    while len(counts) > 1 and counts[-1] == 0:
+        counts.pop()
+    if not counts:
+        return None
+    return (len(counts), counts)
+
+
+def compile_and_measure(tex_text: str) -> tuple[int, list[int], bytes] | None:
+    """Compile tex string; return (pages, lines_per_page, pdf_bytes) or None.
+
+    Single-pass — Jake-style resumes have no \\ref/\\cite, so a second pass is wasted.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        pdf = _compile_tex(tex_text, Path(tmp), passes=1)
+        if pdf is None:
+            return None
+        m = pdf_metrics(pdf)
+        if m is None:
+            return None
+        return m[0], m[1], pdf.read_bytes()
 
 
 def strip_tex_fence(text: str) -> str:

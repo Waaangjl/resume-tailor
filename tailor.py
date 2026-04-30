@@ -14,6 +14,7 @@ import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Literal
 
 import yaml
 
@@ -26,6 +27,8 @@ from prompts import (
     COVER_LETTER_SYSTEM,
     COVER_LETTER_USER,
     RESUME_HIGHLIGHTS_PROMPT,
+    RESUME_REFIT_COMPRESS,
+    RESUME_REFIT_EXPAND,
     RESUME_SYSTEM,
     RESUME_USER,
     STORY_DRAFT_PROMPT,
@@ -107,6 +110,106 @@ def get_style_guide(model: str) -> str:
 def tailor_resume(jd: str, resume_tex: str, model: str) -> str:
     prompt = RESUME_SYSTEM + "\n\n" + RESUME_USER.format(jd=jd, resume=resume_tex)
     return build.strip_tex_fence(llm.call(prompt, model))
+
+
+# ---------------------------------------------------------------------------
+# Page-fit loop
+# ---------------------------------------------------------------------------
+
+# Last page may be up to 15% shorter than base before we trigger an expand refit.
+PAGE_FILL_TOLERANCE = 0.15
+
+Verdict = Literal["ok", "expand", "compress"]
+
+
+def _expand_info(target_pages, current_pages, target_fill, current_fill, deficit):
+    return "expand", {
+        "target_pages": target_pages,
+        "current_pages": current_pages,
+        "target_fill": target_fill,
+        "current_fill": current_fill,
+        "deficit": deficit,
+    }
+
+
+def _classify_fit(
+    base: tuple[int, list[int]],
+    tailored: tuple[int, list[int]],
+) -> tuple[Verdict, dict]:
+    """Compare metrics. Returns (verdict, info-payload-for-refit-prompt)."""
+    base_pages, base_lines = base
+    tail_pages, tail_lines = tailored
+    full_cap = max(base_lines) if base_lines else 55
+    base_last = base_lines[-1] if base_lines else 0
+    tail_last = tail_lines[-1] if tail_lines else 0
+
+    if tail_pages > base_pages:
+        return "compress", {
+            "target_pages": base_pages,
+            "current_pages": tail_pages,
+            "overflow": sum(tail_lines[base_pages:]),
+        }
+    if tail_pages < base_pages:
+        deficit = (base_pages - tail_pages) * full_cap + max(0, base_last - tail_last)
+        return _expand_info(
+            base_pages, tail_pages,
+            int(full_cap * (1 - PAGE_FILL_TOLERANCE)), tail_last, deficit,
+        )
+    # same page count — expand only if the last page is meaningfully short
+    target_fill = max(int(base_last * (1 - PAGE_FILL_TOLERANCE)), int(full_cap * 0.6))
+    if tail_last < target_fill:
+        return _expand_info(
+            base_pages, tail_pages, target_fill, tail_last, target_fill - tail_last,
+        )
+    return "ok", {}
+
+
+def _refit_call(verdict: Verdict, info: dict, jd: str, base_tex: str, current_tex: str, model: str) -> str:
+    if verdict == "expand":
+        prompt = RESUME_REFIT_EXPAND.format(jd=jd, base=base_tex, current=current_tex, **info)
+    else:
+        prompt = RESUME_REFIT_COMPRESS.format(current=current_tex, **info)
+    return build.strip_tex_fence(llm.call(prompt, model))
+
+
+def tailor_with_fit(
+    jd: str,
+    base_tex: str,
+    model: str,
+    max_retries: int = 2,
+) -> tuple[str, bytes | None, str]:
+    """Tailor + iteratively refit so the PDF matches the base's page footprint.
+
+    Returns (final_tex, final_pdf_bytes_or_None, summary). The PDF bytes come from
+    the last fit-loop compile, so the caller can write them straight to disk and
+    avoid a redundant pdflatex run.
+    """
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        base_future = pool.submit(build.compile_and_measure, base_tex)
+        tailored = tailor_resume(jd, base_tex, model)
+        base = base_future.result()
+
+    if base is None:
+        return tailored, None, "skipped (no LaTeX or pdftotext)"
+
+    base_metrics = (base[0], base[1])
+    for attempt in range(max_retries + 1):
+        tail = build.compile_and_measure(tailored)
+        if tail is None:
+            return tailored, None, f"skipped after pass {attempt} (compile failed)"
+        verdict, info = _classify_fit(base_metrics, (tail[0], tail[1]))
+        terminal = verdict == "ok" or attempt == max_retries
+        if terminal:
+            status = "ok" if verdict == "ok" else f"gave up ({verdict})"
+            summary = (
+                f"target {base[0]}p/{base[1][-1]}L · "
+                f"got {tail[0]}p/{tail[1][-1]}L · {status} pass {attempt}"
+            )
+            return tailored, tail[2], summary
+        print(f"  refit  : pass {attempt+1} → {verdict} (target {info['target_pages']}p)")
+        tailored = _refit_call(verdict, info, jd, base_tex, tailored, model)
+
+    raise RuntimeError("unreachable")  # max_retries < 0
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +307,33 @@ def generate_cover_letter(
 
 
 # ---------------------------------------------------------------------------
+# Side-task helpers (invoked from main, in parallel)
+# ---------------------------------------------------------------------------
+
+def _build_diffs(resume_tex: str, tailored_tex: str, meta: build.JDMeta, out_dir: Path) -> int:
+    diff = build.make_diff(resume_tex, tailored_tex)
+    if not diff:
+        return 0
+    changed = sum(1 for ln in diff.splitlines() if ln.startswith(("+ ", "- ")))
+    (out_dir / "resume.diff").write_text(diff, encoding="utf-8")
+    (out_dir / "resume_changes.html").write_text(
+        build.make_html_diff(
+            resume_tex, tailored_tex,
+            company=meta.company, role=meta.role,
+        ),
+        encoding="utf-8",
+    )
+    return changed
+
+
+def _build_cover_letter(
+    jd_text: str, resume_tex: str, meta: build.JDMeta, model: str, profile: dict,
+) -> str:
+    style_guide = get_style_guide(model)
+    return generate_cover_letter(jd_text, resume_tex, meta, model, profile, style_guide)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -236,10 +366,11 @@ examples:
     if not resume_path.exists():
         sys.exit(f"Resume not found: {resume_path}")
 
+    print("[resume-tailor]")
+    print(f"  model  : {args.model}")
+
     if resume_path.suffix.lower() == ".docx":
         template_path = _resolve_path(args.template) if args.template else None
-        print("[resume-tailor]")
-        print(f"  model  : {args.model}")
         print("  converting Word → LaTeX...")
         resume_tex = word_to_tex.convert(resume_path, args.model, template_path)
         tex_out = ROOT / "resumes" / resume_path.with_suffix(".tex").name
@@ -248,10 +379,6 @@ examples:
     else:
         resume_tex = resume_path.read_text(encoding="utf-8")
 
-    if resume_path.suffix.lower() != ".docx":
-        print("[resume-tailor]")
-        print(f"  model  : {args.model}")
-
     jd_arg = args.jd
     if not jd_arg.startswith(("http://", "https://")):
         jd_arg = str(_resolve_path(jd_arg))
@@ -259,45 +386,54 @@ examples:
     jd_label = args.jd if len(args.jd) < 60 else args.jd[:57] + "..."
     print(f"  jd     : {jd_label}")
 
-    print("  naming output folder...")
-    meta = build.extract_jd_meta(jd_text, args.model)
     base_dir = ROOT / cfg.get("output_dir", "output")
-    out_dir = build.output_folder(meta, base_dir)
-    print(f"  folder : {out_dir}")
+    print("  parallel: meta + tailor (+ cover letter, diff)...")
 
-    print("  tailoring resume...")
-    tailored_tex = tailor_resume(jd_text, resume_tex, args.model)
-    tex_path = out_dir / "resume.tex"
-    tex_path.write_text(tailored_tex, encoding="utf-8")
-    print(f"  saved  : {tex_path.name}")
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        meta_future = pool.submit(build.extract_jd_meta, jd_text, args.model)
+        tailor_future = pool.submit(tailor_with_fit, jd_text, resume_tex, args.model)
 
-    if not args.no_pdf:
-        pdf_path = build.compile_pdf(tex_path)
-        if pdf_path:
-            print(f"  pdf    : {pdf_path.name}")
-        else:
-            print("  pdf    : skipped (pdflatex not found — install TeX Live or MiKTeX)")
+        # Cover letter prompt embeds {role}/{company}, so it needs meta — but it
+        # does NOT depend on the tailored tex, so kick it off as soon as meta lands.
+        meta = meta_future.result()
+        out_dir = build.output_folder(meta, base_dir)
+        print(f"  folder : {out_dir}")
+        cl_future = (
+            pool.submit(_build_cover_letter, jd_text, resume_tex, meta, args.model, profile)
+            if not args.no_cover_letter else None
+        )
 
-    if not args.no_diff:
-        diff = build.make_diff(resume_tex, tailored_tex)
-        if diff:
-            changed = sum(1 for ln in diff.splitlines() if ln.startswith(("+ ", "- ")))
-            diff_path = out_dir / "resume.diff"
-            diff_path.write_text(diff, encoding="utf-8")
-            html_path = out_dir / "resume_changes.html"
-            html_path.write_text(build.make_html_diff(
-                resume_tex, tailored_tex,
-                company=meta.company, role=meta.role,
-            ), encoding="utf-8")
-            print(f"  diff   : resume_changes.html  ({changed} lines changed)")
+        tailored_tex, fit_pdf_bytes, fit_summary = tailor_future.result()
+        tex_path = out_dir / "resume.tex"
+        tex_path.write_text(tailored_tex, encoding="utf-8")
+        print(f"  saved  : {tex_path.name}")
+        print(f"  fit    : {fit_summary}")
 
-    if not args.no_cover_letter:
-        style_guide = get_style_guide(args.model)
-        print("  writing cover letter...")
-        cover_letter = generate_cover_letter(jd_text, resume_tex, meta, args.model, profile, style_guide)
-        cl_path = out_dir / "cover_letter.md"
-        cl_path.write_text(cover_letter, encoding="utf-8")
-        print(f"  saved  : {cl_path.name}")
+        diff_future = (
+            pool.submit(_build_diffs, resume_tex, tailored_tex, meta, out_dir)
+            if not args.no_diff else None
+        )
+
+        if not args.no_pdf:
+            pdf_path = tex_path.with_suffix(".pdf")
+            if fit_pdf_bytes:
+                pdf_path.write_bytes(fit_pdf_bytes)
+                print(f"  pdf    : {pdf_path.name}")
+            elif build.compile_pdf(tex_path):
+                print(f"  pdf    : {pdf_path.name}")
+            else:
+                print("  pdf    : skipped (pdflatex not found — install TeX Live or MiKTeX)")
+
+        if diff_future is not None:
+            changed = diff_future.result()
+            if changed:
+                print(f"  diff   : resume_changes.html  ({changed} lines changed)")
+
+        if cl_future is not None:
+            cover_letter = cl_future.result()
+            cl_path = out_dir / "cover_letter.md"
+            cl_path.write_text(cover_letter, encoding="utf-8")
+            print(f"  saved  : {cl_path.name}")
 
     print(f"\n  done → {out_dir}/")
     for f in sorted(out_dir.iterdir()):

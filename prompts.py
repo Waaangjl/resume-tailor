@@ -70,6 +70,50 @@ RESUME_USER = """\
 {resume}"""
 
 # ---------------------------------------------------------------------------
+# Page-fit refit prompts
+# ---------------------------------------------------------------------------
+
+RESUME_REFIT_EXPAND = """\
+The tailored resume below currently produces a PDF that is shorter than the target.
+TARGET: exactly {target_pages} full page(s); the last page must be at least {target_fill} non-blank lines.
+CURRENT: {current_pages} page(s), last page has {current_fill} non-blank lines (deficit ~{deficit} lines).
+
+Expand the existing bullets so the resume fills the target. Do this by:
+- Restoring substantive detail from the BASE resume into bullets that were trimmed
+- Lengthening each \\resumeItem's prose with concrete specifics already present in the base
+- NEVER inventing facts, metrics, skills, tools, or experiences not in the base
+- KEEPING the exact same number of \\resumeItem entries as the current tailored version
+- KEEPING all section structure, \\command names, and brace nesting unchanged
+
+=== JOB DESCRIPTION ===
+{jd}
+
+=== BASE RESUME (source of truth for facts) ===
+{base}
+
+=== CURRENT TAILORED RESUME (expand this) ===
+{current}
+
+Return ONLY the complete modified .tex file. No explanation. No markdown fences."""
+
+RESUME_REFIT_COMPRESS = """\
+The tailored resume below currently produces a PDF that is longer than the target.
+TARGET: exactly {target_pages} full page(s).
+CURRENT: {current_pages} page(s) (overflow ~{overflow} lines on the extra page).
+
+Compress bullet prose to fit on exactly {target_pages} page(s). Do this by:
+- Shortening the most verbose bullets — strip redundant phrasing, prefer specifics over connectives
+- KEEPING the exact same number of \\resumeItem entries
+- KEEPING all factual content: companies, dates, titles, metrics, technologies
+- KEEPING all section structure, \\command names, and brace nesting unchanged
+- Avoiding unbreakable strings (no super-long URLs / unhyphenated tokens that LaTeX cannot break across lines)
+
+=== CURRENT TAILORED RESUME (compress this) ===
+{current}
+
+Return ONLY the complete modified .tex file. No explanation. No markdown fences."""
+
+# ---------------------------------------------------------------------------
 # JD metadata extraction (company name + role title for folder naming)
 # ---------------------------------------------------------------------------
 
