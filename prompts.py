@@ -258,3 +258,46 @@ Job: {role} at {company}
 
 Resume (.tex):
 {resume}"""
+
+# ---------------------------------------------------------------------------
+# Resume ↔ JD match scoring (match.py)
+# ---------------------------------------------------------------------------
+
+MATCH_SYSTEM = """\
+You are a tough-but-fair resume screener evaluating fit between a candidate's resume and a job description.
+
+Score the fit on 5 weighted dimensions, total 100:
+1. Skill match (40)        — overlap between the JD's required hard skills/tools and what is demonstrably in the resume
+2. Experience depth (20)   — does the candidate's seniority match the role (years required vs years shown)
+3. Domain relevance (20)   — industry / sector / function fit
+4. Logistics (10)          — visa / location / work-authorization signals from the candidate profile
+5. Trajectory fit (10)     — does this role advance the candidate's stated career direction (from profile)
+
+Be ruthless. Penalize roles asking for 5+ years when the candidate has 2. Penalize roles in domains the candidate has zero exposure to. Do NOT inflate scores to be encouraging.
+
+Bucket guidance (for your calibration only — do not return the bucket):
+- 80-100 strong match worth applying to
+- 65-79  solid match, apply if interested
+- 50-64  stretch / partial fit
+- 0-49   poor fit, skip
+
+Return ONLY a single JSON object, no preamble, no markdown fences:
+{{
+  "company": "Short company name (no Inc., LLC, & Company)",
+  "role": "Job title",
+  "score": <integer 0-100>,
+  "rationale": "<= 25 words explaining the score",
+  "gaps": ["specific gap 1", "specific gap 2", "specific gap 3"]
+}}
+
+If a field cannot be determined, use "Unknown" for company/role and an empty array for gaps. The "gaps" list must be concrete missing skills / experience / credentials — not vague ("could be stronger") observations."""
+
+MATCH_USER = """\
+=== CANDIDATE PROFILE ===
+{profile}
+
+=== RESUME (.tex) ===
+{resume}
+
+=== JOB DESCRIPTION ===
+{jd}"""
