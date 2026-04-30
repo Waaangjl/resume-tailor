@@ -73,7 +73,9 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 const RESUME_VALID = {
   scratch:  d => !!d.template,
-  file:     d => !!d.file,
+  // file mode requires actual LaTeX content — `file` alone is just a name and
+  // means nothing if the FileReader didn't run (e.g. a non-.tex drop)
+  file:     d => !!(d.latex && d.latex.trim()),
   overleaf: d => !!d.latex.trim(),
   previous: () => true,
 };
@@ -183,6 +185,8 @@ function App() {
               diffHtml:    payload.diff_html,
               company:     payload.company,
               role:        payload.role,
+              jdText:      payload.jd_text,
+              fitSummary:  payload.fit_summary,
             });
             setProgress({ step: 5, label: 'Done' });
             timersRef.current.push(setTimeout(() => setPhase('results'), 700));
@@ -299,15 +303,17 @@ function StepResume({ data, update }) {
 
   const choose = (m) => update('resume', { mode: m });
 
+  const [fileError, setFileError] = useState(null);
   const readFile = (f) => {
     if (!f) return;
-    if (f.name.endsWith('.tex')) {
-      const r = new FileReader();
-      r.onload = ev => update('resume', { file: f.name, latex: ev.target.result });
-      r.readAsText(f);
-    } else {
-      update('resume', { file: f.name });
+    if (!f.name.toLowerCase().endsWith('.tex')) {
+      setFileError(`"${f.name}" isn't a .tex file. Upload LaTeX source, or paste it on the Overleaf tab.`);
+      return;
     }
+    setFileError(null);
+    const r = new FileReader();
+    r.onload = ev => update('resume', { file: f.name, latex: ev.target.result });
+    r.readAsText(f);
   };
 
   const TEMPLATES = [
@@ -382,7 +388,8 @@ function StepResume({ data, update }) {
             <Icon name="upload" size={28} style={{ color: 'var(--ink-3)' }}/>
             <p style={{margin:'12px 0 4px',fontSize:14,color:'var(--ink)'}}>Drop your .tex file here</p>
             <p style={{margin:0,fontSize:12,color:'var(--ink-3)'}}>or click to browse · tex only</p>
-            {data.resume.file && <p className="filename">✓ {data.resume.file}</p>}
+            {data.resume.file && data.resume.latex && <p className="filename">✓ {data.resume.file}</p>}
+            {fileError && <p className="filename" style={{color:'var(--sub-fg)'}}>⚠ {fileError}</p>}
           </div>
         </Fragment>
       )}
@@ -925,7 +932,9 @@ function ResultsScreen({ results, reset, data }) {
 
   const match = useMemo(() => {
     const r = resumeForMatch(data);
-    const j = jdForMatch(data);
+    // Prefer the JD prose the server actually fetched (URL mode otherwise
+    // leaves the frontend with only the URL slug, which scores garbage).
+    const j = (results?.jdText && results.jdText.trim()) || jdForMatch(data);
     if (!r || !j) return null;
     const before = computeMatch(r, j);
     // Score the REAL tailored output if the backend returned one; otherwise
@@ -936,7 +945,7 @@ function ResultsScreen({ results, reset, data }) {
     const delta = after.score - before.score;
     const pct = before.score > 0 ? Math.round((delta / before.score) * 100) : 0;
     return { before: before.score, after: after.score, delta, pct, overlap: after.overlap };
-  }, [data.resume.latex, data.profile, data.stories, data.voice.sample, data.jd.text, data.jd.url, results?.tailoredTex]);
+  }, [data.resume.latex, data.profile, data.stories, data.voice.sample, data.jd.text, data.jd.url, results?.tailoredTex, results?.jdText]);
 
   const [coverText, setCoverText] = useState(results?.coverLetter || '');
 

@@ -13,7 +13,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 
 import build
 import fetch as fetch_mod
-from tailor import DEFAULT_STYLE, draft_stories, generate_cover_letter, tailor_resume
+from tailor import DEFAULT_STYLE, draft_stories, generate_cover_letter, tailor_with_fit
 
 app = Flask(__name__)
 
@@ -98,25 +98,36 @@ def api_generate():
     voice_data  = body.get("voice", {})
     model_name  = body.get("model", "sonnet")
 
-    resume_tex = resume_data.get("latex", "")
-    jd_text    = jd_data.get("text", "") or ""
+    resume_tex = (resume_data.get("latex") or "").strip()
+    jd_text    = (jd_data.get("text") or "").strip()
+    jd_url     = (jd_data.get("url") or "").strip()
+
+    if not resume_tex:
+        return jsonify({"ok": False, "error": "Resume content is missing — pick a file or paste LaTeX."}), 400
+    if not jd_text and not jd_url:
+        return jsonify({"ok": False, "error": "Job description is missing — paste text or provide a URL."}), 400
 
     def stream():
         nonlocal jd_text
         try:
-            if not jd_text.strip() and jd_data.get("url"):
+            if not jd_text and jd_url:
                 yield _evt("progress", step=0, label="Fetching job description…")
                 try:
-                    jd_text = fetch_mod.get_jd(jd_data["url"])
+                    jd_text = fetch_mod.get_jd(jd_url)
                 except Exception as e:
                     yield _evt("error", message=f"Could not fetch JD: {e}")
+                    return
+                if not jd_text.strip():
+                    yield _evt("error", message="Fetched page returned no readable text — paste the JD directly.")
                     return
 
             yield _evt("progress", step=1, label="Extracting job metadata…")
             meta = build.extract_jd_meta(jd_text, model_name)
 
             yield _evt("progress", step=2, label="Tailoring resume…")
-            tailored_tex = tailor_resume(jd_text, resume_tex, model_name)
+            tailored_tex, _pdf_bytes, fit_summary = tailor_with_fit(
+                jd_text, resume_tex, model_name,
+            )
 
             yield _evt("progress", step=3, label="Building diff…")
             diff_html = build.make_html_diff(
@@ -138,6 +149,8 @@ def api_generate():
                 diff_html=diff_html,
                 company=meta.company.replace("_", " "),
                 role=meta.role.replace("_", " "),
+                jd_text=jd_text,         # round-trip so frontend match score uses real JD prose, not URL slug
+                fit_summary=fit_summary,
             )
         except Exception as e:
             yield _evt("error", message=str(e))
