@@ -1,7 +1,9 @@
-# Plan: Resume → Job Match (Layer 1)
+# Plan: Resume → Job Match (Layer 1) — DONE 2026-04-30
 
 Reverse direction of the existing tool: given a base resume, rank existing
 JDs in `jds/` by fit and surface what's worth applying to.
+
+**Status**: shipped as `match.py` CLI. See "Decisions made" below.
 
 ---
 
@@ -106,16 +108,25 @@ If the corpus ever exceeds ~200 JDs, add embedding-based pre-filter
   brittle). User pastes specific URLs into existing `tailor.py` instead.
 - **Vector index** — over-engineered for current scale.
 
-## Open questions to resolve before coding
+## Decisions made (2026-04-30)
 
-1. Output format: prefer Markdown (current plan), or also emit JSON for
-   future programmatic consumption?
-2. Scoring scale: 0-100 numeric vs `must / yes / maybe / skip` buckets?
-   Numeric gives sortability; buckets are easier to act on.
-3. `--auto-tailor` default — off (safer, cheap) or on (more useful first
-   time)?
-4. Should the report cache results so re-running on the same `jds/`
-   doesn't re-score unchanged files?
+1. **Output format**: Markdown only. JSON deferred until a programmatic
+   consumer actually exists.
+2. **Scoring scale**: 0-100 numeric *plus* derived bucket label
+   (`must` ≥80 / `yes` 65-79 / `maybe` 50-64 / `skip` <50). Both shown in
+   the report — numeric for sort, bucket for action.
+3. **`--auto-tailor` default**: off. Each run spawns 4 parallel LLM calls
+   per match → must be explicit opt-in.
+4. **Caching**: deferred. With <50 JDs the full re-score is ~$0.10-0.30 and
+   trivially fast in parallel. Add when corpus crosses ~50.
+
+## Deviation from original plan
+
+The plan called for two LLM calls per JD: `build.extract_jd_meta` (company
++ role) and a separate scoring call. **Shipped as one combined prompt**
+(`MATCH_SYSTEM` + `MATCH_USER`) returning `{company, role, score, rationale,
+gaps}` in a single JSON object. Halves token cost and latency. One stricter
+retry tolerates transient JSON-parse failures.
 
 ## Effort estimate
 

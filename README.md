@@ -159,7 +159,8 @@ The resume tailoring prompt prioritizes: (1) most recent experience bullets, (2)
 
 ```
 resume-tailor/
-├── tailor.py               # main CLI entry point
+├── tailor.py               # JD → tailored resume + cover letter
+├── match.py                # rank existing jds/ against a base resume
 ├── build.py                # PDF compilation, folder management, diff
 ├── fetch.py                # fetch JD from URL or local file
 ├── llm.py                  # LLM backend (claude -p or LiteLLM)
@@ -171,8 +172,41 @@ resume-tailor/
 │   └── sample_resume.tex   # Jake-style LaTeX template
 ├── writing_samples/        # (optional) .txt files in your voice
 ├── jds/                    # (gitignored) your saved job descriptions
-└── output/                 # (gitignored) generated tailored resumes
+└── output/                 # (gitignored) tailored resumes + match reports
 ```
+
+---
+
+## Ranking JDs against your resume
+
+Once you've collected a few JDs in `jds/`, rank them by fit before deciding which to tailor:
+
+```bash
+python match.py --resume resumes/your_resume.tex
+python match.py --resume resumes/your_resume.tex --top 10
+python match.py --resume resumes/your_resume.tex --auto-tailor
+```
+
+Output lands in `output/matches_<YYYYMMDD>.md`:
+
+```
+| Rank | Score | Bucket | Company    | Role            | Why                          |
+| 1    | 87    | must   | World Bank | Product Analyst | strong project-fin fit, ...  |
+| 2    | 64    | maybe  | …          | …               | …                            |
+```
+
+Each entry has a 0-100 score, a bucket label (`must` ≥80, `yes` 65-79, `maybe` 50-64, `skip` <50), a one-line rationale, and 2-3 concrete gaps.
+
+**`jds/` accepts**:
+- `*.txt` — pasted JD text
+- `*.url` — single URL on the first line; the tool fetches and parses it
+
+**Flags**:
+- `--top N` — only keep the N best matches (also caps `--auto-tailor`)
+- `--model` — same routing as `tailor.py`
+- `--auto-tailor` — run `tailor.py` on each top-N match after ranking (off by default)
+
+Cost: ~$0.003/JD on Sonnet via `claude -p`, runs 8 in parallel. 30 JDs → ~20s wall time, ~$0.10.
 
 ---
 
@@ -183,7 +217,7 @@ pip install pytest
 pytest tests/
 ```
 
-38 tests covering HTML parsing, URL fetching, LaTeX fence stripping, diff generation, and LLM routing.
+92 tests covering HTML parsing, URL fetching, LaTeX fence stripping, diff generation, LLM routing, and JD match scoring.
 
 ---
 
