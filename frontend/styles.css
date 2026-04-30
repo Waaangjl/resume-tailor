@@ -366,3 +366,66 @@ iframe.embed { width: 100%; height: 720px; border: 0; background: var(--paper); 
 
 .row { display: flex; gap: 10px; align-items: center; }
 .spacer { flex: 1; }
+
+/* ---------------- match score card ---------------- */
+.match-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 22px;
+  margin: 0 0 24px;
+  box-shadow: var(--shadow-card);
+}
+.match-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.match-label {
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-3); font-family: var(--mono);
+}
+.match-num {
+  font-size: 32px; font-weight: 600; color: var(--ink); letter-spacing: -0.02em;
+  display: inline-flex; align-items: baseline; gap: 8px;
+}
+.match-unit {
+  font-size: 14px; font-weight: 400; color: var(--ink-3); margin-left: 2px;
+}
+.match-delta {
+  font-size: 13px; font-weight: 500;
+  padding: 2px 8px; border-radius: 999px;
+  font-family: var(--mono);
+}
+.match-delta.up   { background: var(--add-bg); color: var(--add-fg); }
+.match-delta.down { background: var(--sub-bg); color: var(--sub-fg); }
+
+.match-bar {
+  height: 6px; background: var(--line); border-radius: 3px; overflow: hidden;
+}
+.match-fill {
+  height: 100%; background: var(--ink); border-radius: 3px;
+  transition: width 800ms cubic-bezier(.2,.8,.2,1);
+}
+.match-card.tone-good .match-fill { background: var(--add-fg); }
+.match-card.tone-ok   .match-fill { background: var(--ink); }
+.match-card.tone-weak .match-fill { background: var(--warn-fg); }
+
+.match-meta {
+  display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+  margin-top: 12px;
+}
+.match-hint {
+  font-size: 12.5px; color: var(--ink-2); flex: 1; min-width: 200px;
+}
+.match-keys {
+  display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.match-keys-label {
+  font-size: 11px; color: var(--ink-3); font-family: var(--mono);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.match-chip {
+  font-size: 11.5px; padding: 2px 8px; border-radius: 4px;
+  background: var(--accent-soft); color: var(--ink-2);
+  font-family: var(--mono);
+}

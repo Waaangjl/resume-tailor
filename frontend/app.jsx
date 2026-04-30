@@ -15,6 +15,57 @@ const SUGGESTED_TAGS = ['Quant', 'Research', 'ML', 'Backend', 'Frontend', 'Data'
 
 const wordCount = (s) => s.trim().split(/\s+/).filter(Boolean).length;
 
+// ---- Match score (heuristic, frontend-only) ----------------------------
+// Stand-in until the wizard is wired to the Python backend. Computes a
+// keyword-overlap score so the UI reacts to real user input rather than
+// showing a static placeholder.
+const MATCH_STOP = new Set((
+  'the and for with this that from your our will have are was were been any all can would should they their them ' +
+  'its into out what which where about when has had who you not but use using used one two three four five ' +
+  'most more less some such non each work team role roles skills skill years year include includes including ' +
+  'inc llc ltd co corp etc per via able good great new old like just also off than then ' +
+  'experience required preferred ability strong demonstrated excellent ideal candidate position company across'
+).split(' '));
+
+function tokenize(s) {
+  return ((s || '').toLowerCase().match(/\b[a-z][a-z0-9+#.-]{2,}\b/g) || [])
+    .filter(t => !MATCH_STOP.has(t));
+}
+
+function computeMatch(resumeText, jdText) {
+  const rSet = new Set(tokenize(resumeText));
+  const jTokens = tokenize(jdText);
+  const jUnique = [...new Set(jTokens)];
+  if (jUnique.length === 0) return { score: 0, overlap: [] };
+  const overlap = jUnique.filter(t => rSet.has(t));
+  const coverage = overlap.length / jUnique.length;
+  const score = Math.max(8, Math.min(99, Math.round(35 + coverage * 75)));
+  return { score, overlap: overlap.slice(0, 6) };
+}
+
+// Simulate a tailored resume by adopting the most distinctive JD terms,
+// then re-score. Real backend will replace this with the actual rewrite.
+function computeTailoredMatch(resumeText, jdText) {
+  const merged = (resumeText || '') + ' ' + tokenize(jdText).slice(0, 40).join(' ');
+  return computeMatch(merged, jdText);
+}
+
+function resumeForMatch(data) {
+  // Pure-frontend wizard has no compiled .tex content; fall back to whatever
+  // the user typed (Overleaf paste, profile, stories) as a stand-in corpus.
+  return [
+    data.resume.latex,
+    data.profile.name, data.profile.location, data.profile.linkedin, data.profile.github, data.profile.website,
+    ...data.stories.map(s => s.text),
+    ...data.stories.flatMap(s => s.tags),
+    data.voice.sample,
+  ].filter(Boolean).join(' ');
+}
+
+function jdForMatch(data) {
+  return data.jd.text || data.jd.url || '';
+}
+
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "step": 0,
   "showSkips": true
@@ -665,6 +716,42 @@ function StepVoice({ data, update, setData }) {
   );
 }
 
+function MatchCard({ score, overlap, label, hint, delta = null }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setShown(score), 60);
+    return () => clearTimeout(t);
+  }, [score]);
+  const tone = score >= 78 ? 'good' : score >= 55 ? 'ok' : 'weak';
+  return (
+    <div className={`match-card tone-${tone}`}>
+      <div className="match-row">
+        <span className="match-label">{label}</span>
+        <span className="match-num">
+          {score}<span className="match-unit">/100</span>
+          {delta != null && delta !== 0 && (
+            <span className={`match-delta ${delta > 0 ? 'up' : 'down'}`}>
+              {delta > 0 ? '+' : ''}{delta}
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="match-bar"><div className="match-fill" style={{ width: `${shown}%` }}/></div>
+      {(hint || (overlap && overlap.length > 0)) && (
+        <div className="match-meta">
+          {hint && <span className="match-hint">{hint}</span>}
+          {overlap && overlap.length > 0 && (
+            <div className="match-keys">
+              <span className="match-keys-label">shared:</span>
+              {overlap.map(k => <span key={k} className="match-chip">{k}</span>)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StepReview({ data, setData, goto }) {
   const items = [
     { step: 0, label: 'Resume',  value: data.resume.file || (data.resume.template ? `Template: ${data.resume.template}` : data.resume.latex ? `${data.resume.latex.length} chars of LaTeX` : '—'), done: !!(data.resume.file || data.resume.template || data.resume.latex) },
@@ -673,11 +760,28 @@ function StepReview({ data, setData, goto }) {
     { step: 3, label: 'Stories', value: `${data.stories.filter(s => s.text.trim()).length} stories`, done: data.stories.some(s => s.text.trim()) },
     { step: 4, label: 'Voice',   value: data.voice.sample ? `${wordCount(data.voice.sample)} words` : 'skipped', done: true, skipped: !data.voice.sample },
   ];
+  const match = useMemo(() => {
+    const r = resumeForMatch(data);
+    const j = jdForMatch(data);
+    return (r && j) ? computeMatch(r, j) : null;
+  }, [data.resume.latex, data.profile, data.stories, data.voice.sample, data.jd.text, data.jd.url]);
   return (
     <div className="step">
       <div className="eyebrow">step 06 / 06 · review</div>
       <h1 className="step-title">Looks good?</h1>
       <p className="step-subtitle">Review your inputs, then generate. This usually takes 30–90 seconds.</p>
+      {match && (
+        <MatchCard
+          label="Current match"
+          score={match.score}
+          overlap={match.overlap}
+          hint={
+            match.score >= 78 ? 'Strong baseline — tailoring will sharpen language and reorder bullets.'
+            : match.score >= 55 ? 'Decent baseline — tailoring should close the keyword gap.'
+            : 'Weak overlap — tailoring will pull JD-relevant terms from your stories.'
+          }
+        />
+      )}
       <ul className="summary">
         {items.map(it => (
           <li key={it.step}>
@@ -818,6 +922,22 @@ function PDFTab({ tailoredTex, downloadFile }) {
 function ResultsScreen({ results, reset, data }) {
   const [tab, setTab] = useState('changes');
   const [editing, setEditing] = useState(false);
+
+  const match = useMemo(() => {
+    const r = resumeForMatch(data);
+    const j = jdForMatch(data);
+    if (!r || !j) return null;
+    const before = computeMatch(r, j);
+    // Score the REAL tailored output if the backend returned one; otherwise
+    // fall back to the heuristic simulation so the card still renders.
+    const after = results?.tailoredTex
+      ? computeMatch(results.tailoredTex, j)
+      : computeTailoredMatch(r, j);
+    const delta = after.score - before.score;
+    const pct = before.score > 0 ? Math.round((delta / before.score) * 100) : 0;
+    return { before: before.score, after: after.score, delta, pct, overlap: after.overlap };
+  }, [data.resume.latex, data.profile, data.stories, data.voice.sample, data.jd.text, data.jd.url, results?.tailoredTex]);
+
   const [coverText, setCoverText] = useState(results?.coverLetter || '');
 
   const downloadFile = (filename, content) => {
@@ -842,6 +962,19 @@ function ResultsScreen({ results, reset, data }) {
       </div>
       <div className="results">
         <div className="results-wrap">
+          {match && (
+            <MatchCard
+              label="Tailored match"
+              score={match.after}
+              delta={match.delta}
+              overlap={match.overlap}
+              hint={
+                match.delta > 0
+                  ? `From ${match.before} before tailoring · ${match.pct}% improvement on JD keyword coverage.`
+                  : `Already aligned with the JD before tailoring (${match.before}).`
+              }
+            />
+          )}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
             <div className="tabs">
               <button className={tab==='changes'?'active':''} onClick={() => setTab('changes')}><Icon name="list" size={14}/>Changes</button>
