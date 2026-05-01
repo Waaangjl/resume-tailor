@@ -168,36 +168,77 @@ class TestLooksRemote:
 # ---------------------------------------------------------------------------
 
 class TestWriteNewJDs:
-    def _stub(self, ad_id):
+    def _stub(self, ad_id, company="Acme", title="Engineer"):
         return {
-            "id": ad_id, "title": "T",
-            "company": {"display_name": "C"}, "location": {"display_name": "L"},
+            "id": ad_id, "title": title,
+            "company": {"display_name": company}, "location": {"display_name": "L"},
             "created": "2026-04-28T00:00:00Z", "description": "body",
         }
 
     def test_writes_new_files(self, tmp_path):
-        results = [self._stub("a"), self._stub("b")]
-        n_new, n_skip = write_new_jds(results, tmp_path)
-        assert n_new == 2 and n_skip == 0
+        results = [self._stub("a"), self._stub("b", title="Other Role")]
+        n_new, n_skip, n_dup = write_new_jds(results, tmp_path)
+        assert (n_new, n_skip, n_dup) == (2, 0, 0)
         assert (tmp_path / "adzuna_a.txt").exists()
         assert (tmp_path / "adzuna_b.txt").exists()
 
     def test_skips_existing(self, tmp_path):
         (tmp_path / "adzuna_a.txt").write_text("preexisting")
-        n_new, n_skip = write_new_jds([self._stub("a"), self._stub("b")], tmp_path)
-        assert n_new == 1 and n_skip == 1
-        assert (tmp_path / "adzuna_a.txt").read_text() == "preexisting"  # untouched
+        results = [self._stub("a"), self._stub("b", title="Other Role")]
+        n_new, n_skip, n_dup = write_new_jds(results, tmp_path)
+        assert (n_new, n_skip, n_dup) == (1, 1, 0)
+        assert (tmp_path / "adzuna_a.txt").read_text() == "preexisting"
 
     def test_skips_missing_id(self, tmp_path):
         results = [self._stub("a"), {"title": "no id"}]
-        n_new, n_skip = write_new_jds(results, tmp_path)
-        assert n_new == 1 and n_skip == 0
+        n_new, n_skip, n_dup = write_new_jds(results, tmp_path)
+        assert (n_new, n_skip, n_dup) == (1, 0, 0)
         assert list(tmp_path.iterdir()) == [tmp_path / "adzuna_a.txt"]
 
     def test_creates_dir_if_missing(self, tmp_path):
         target = tmp_path / "new_subdir"
         write_new_jds([self._stub("a")], target)
         assert target.is_dir()
+
+    def test_collapses_in_batch_duplicates(self, tmp_path):
+        """Adzuna often returns the same (company, title) under different ids."""
+        results = [
+            self._stub("1", "SimVentions", "Schedule Analyst"),
+            self._stub("2", "SimVentions", "Schedule Analyst"),
+            self._stub("3", "SimVentions", "Schedule Analyst"),
+            self._stub("4", "Acme",        "Engineer"),
+        ]
+        n_new, n_skip, n_dup = write_new_jds(results, tmp_path)
+        assert (n_new, n_skip, n_dup) == (2, 0, 2)
+        assert (tmp_path / "adzuna_1.txt").exists()
+        assert not (tmp_path / "adzuna_2.txt").exists()
+        assert not (tmp_path / "adzuna_3.txt").exists()
+        assert (tmp_path / "adzuna_4.txt").exists()
+
+    def test_dedup_is_case_insensitive(self, tmp_path):
+        results = [
+            self._stub("1", "Acme Corp", "ML Engineer"),
+            self._stub("2", "ACME CORP", "ml engineer"),  # same job, weird casing
+        ]
+        n_new, n_skip, n_dup = write_new_jds(results, tmp_path)
+        assert (n_new, n_skip, n_dup) == (1, 0, 1)
+
+    def test_same_company_different_title_not_deduped(self, tmp_path):
+        results = [
+            self._stub("1", "Acme", "Engineer I"),
+            self._stub("2", "Acme", "Engineer II"),
+        ]
+        n_new, n_skip, n_dup = write_new_jds(results, tmp_path)
+        assert (n_new, n_skip, n_dup) == (2, 0, 0)
+
+    def test_missing_company_or_title_not_deduped(self, tmp_path):
+        # Don't false-positive when both fields are blank — dedup key incomplete
+        results = [
+            {"id": "1", "title": "", "company": {"display_name": ""}, "description": ""},
+            {"id": "2", "title": "", "company": {"display_name": ""}, "description": ""},
+        ]
+        n_new, n_skip, n_dup = write_new_jds(results, tmp_path)
+        assert (n_new, n_skip, n_dup) == (2, 0, 0)
 
 
 # ---------------------------------------------------------------------------

@@ -159,24 +159,46 @@ def _format_salary(r: dict) -> str:
     return ""
 
 
-def write_new_jds(results: list[dict], jds_dir: Path) -> tuple[int, int]:
-    """Persist new JDs, skipping those whose adzuna_<id>.txt already exists.
+def _dedup_key(r: dict) -> tuple[str, str]:
+    """Same-batch dedup key — (company, title), case/whitespace normalized.
 
-    Returns (n_new_written, n_skipped_existing).
+    Adzuna returns up to 18 identical postings for the same role from
+    a single company, distinguished only by adzuna_id; collapse them.
+    """
+    company = ((r.get("company")  or {}).get("display_name") or "").strip().lower()
+    title   = (r.get("title") or "").strip().lower()
+    return (company, title)
+
+
+def write_new_jds(results: list[dict], jds_dir: Path) -> tuple[int, int, int]:
+    """Persist new JDs.
+
+    Skips two cases:
+      - jds/adzuna_<id>.txt already exists (cross-run dedup)
+      - earlier result in the same batch had matching (company, title)
+        (in-batch dedup — collapses Adzuna's bulk-repost duplicates)
+
+    Returns (n_new_written, n_skipped_existing, n_in_batch_duplicates).
     """
     jds_dir.mkdir(parents=True, exist_ok=True)
-    n_new = n_skipped = 0
+    n_new = n_skipped = n_dup = 0
+    seen: set[tuple[str, str]] = set()
     for r in results:
         ad_id = r.get("id")
         if not ad_id:
             continue
+        key = _dedup_key(r)
+        if all(key) and key in seen:
+            n_dup += 1
+            continue
+        seen.add(key)
         path = jds_dir / f"adzuna_{ad_id}.txt"
         if path.exists():
             n_skipped += 1
             continue
         path.write_text(format_jd_file(r), encoding="utf-8")
         n_new += 1
-    return n_new, n_skipped
+    return n_new, n_skipped, n_dup
 
 
 # ---------------------------------------------------------------------------
@@ -283,16 +305,24 @@ examples:
 
     if args.dry_run:
         print("\n  [dry-run] would write:")
+        seen: set[tuple[str, str]] = set()
         for r in results[: args.limit]:
             ad_id   = r.get("id") or "?"
             company = (r.get("company") or {}).get("display_name", "?")
             title   = r.get("title", "?")
-            mark    = "skip" if (jds_dir / f"adzuna_{ad_id}.txt").exists() else "new"
+            key = _dedup_key(r)
+            if all(key) and key in seen:
+                mark = "dup"
+            elif (jds_dir / f"adzuna_{ad_id}.txt").exists():
+                mark = "skip"
+            else:
+                mark = "new"
+            seen.add(key)
             print(f"    [{mark}] adzuna_{ad_id}.txt  {company} — {title}")
         return
 
-    n_new, n_skipped = write_new_jds(results[: args.limit], jds_dir)
-    print(f"\n  saved  : {n_new} new · {n_skipped} already in jds/")
+    n_new, n_skipped, n_dup = write_new_jds(results[: args.limit], jds_dir)
+    print(f"\n  saved  : {n_new} new · {n_skipped} already in jds/ · {n_dup} in-batch duplicates")
 
     if args.match:
         if n_new == 0:
