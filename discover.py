@@ -153,6 +153,8 @@ def format_jd_file(r: dict) -> str:
 def _format_salary(r: dict) -> str:
     smin, smax = r.get("salary_min"), r.get("salary_max")
     if smin and smax:
+        if int(smin) == int(smax):
+            return f"${int(smin):,}"
         return f"${int(smin):,}-${int(smax):,}"
     if smin:
         return f"${int(smin):,}+"
@@ -329,6 +331,7 @@ examples:
             print("  match  : skipped (no new JDs)")
             return
         print("\n[match] running match.py on full jds/ ...")
+        sys.stdout.flush()  # so our output appears before the subprocess's
         subprocess.run(
             [sys.executable, str(ROOT / "match.py"),
              "--resume", str(resume_path),

@@ -95,6 +95,10 @@ class TestFormatSalary:
         # Adzuna sometimes returns 0 as "unknown"; treat falsy as missing
         assert _format_salary({"salary_min": 0, "salary_max": 0}) == ""
 
+    def test_min_equals_max_shown_as_single(self):
+        # Don't display "$82,839-$82,839" when min == max
+        assert _format_salary({"salary_min": 82839, "salary_max": 82839}) == "$82,839"
+
 
 # ---------------------------------------------------------------------------
 # format_jd_file
