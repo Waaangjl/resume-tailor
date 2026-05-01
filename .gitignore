@@ -1,6 +1,7 @@
 # Personal files — copy from *.example.* and fill in your own details
 profile.yaml
 story_bank.yaml
+secrets.yaml
 resumes/*
 !resumes/sample_resume.tex
 !resumes/template_finance.tex
