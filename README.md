@@ -161,12 +161,15 @@ The resume tailoring prompt prioritizes: (1) most recent experience bullets, (2)
 resume-tailor/
 ├── tailor.py               # JD → tailored resume + cover letter
 ├── match.py                # rank existing jds/ against a base resume
+├── discover.py             # pull fresh JDs from Adzuna into jds/
 ├── build.py                # PDF compilation, folder management, diff
 ├── fetch.py                # fetch JD from URL or local file
 ├── llm.py                  # LLM backend (claude -p or LiteLLM)
 ├── prompts.py              # all LLM prompts
+├── secrets.py              # env + yaml secret loader
 ├── config.yaml             # model + output_dir config
 ├── profile.example.yaml    # → copy to profile.yaml and fill in
+├── secrets.example.yaml    # → copy to secrets.yaml and fill in (Adzuna keys)
 ├── story_bank.example.yaml # → copy to story_bank.yaml and fill in
 ├── resumes/
 │   └── sample_resume.tex   # Jake-style LaTeX template
@@ -174,6 +177,44 @@ resume-tailor/
 ├── jds/                    # (gitignored) your saved job descriptions
 └── output/                 # (gitignored) tailored resumes + match reports
 ```
+
+---
+
+## Discovering jobs from Adzuna
+
+Pull fresh JDs from Adzuna based on your resume and drop them into `jds/` so `match.py` can rank them:
+
+```bash
+python discover.py --resume resumes/your_resume.tex
+python discover.py --resume resumes/your_resume.tex --query "ML engineer,data scientist"
+python discover.py --resume resumes/your_resume.tex --country gb --where London
+python discover.py --resume resumes/your_resume.tex --dry-run    # call API, don't write
+python discover.py --resume resumes/your_resume.tex --match      # chain match.py after
+```
+
+**Setup** (one-time):
+
+1. Get free credentials at [developer.adzuna.com](https://developer.adzuna.com/) (250 calls/day)
+2. `cp secrets.example.yaml secrets.yaml` and fill in `app_id` + `app_key` (or set `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` env vars — env wins over yaml)
+
+**How it works**:
+
+1. LLM extracts 3-5 plausible **job titles** from your resume (not skills — skill matching is `match.py`'s job)
+2. Hits Adzuna's search API with `what_or=<titles>`, `where`, `distance`, `max_days_old`
+3. Writes new results to `jds/adzuna_<id>.txt` (header: company / role / location / posted / salary / URL; body: stripped JD text)
+4. Dedups by filename **and** by `(company, title)` within a batch — Adzuna often returns 10-20 identical postings under different ids
+5. Optional `--match` chains `match.py` on the full `jds/` corpus
+
+**Flags**:
+- `--query Q` — comma-separated job titles, skips LLM extraction
+- `--country C` / `--where W` / `--distance N` — override `secrets.yaml` defaults
+- `--days N` — only include JDs posted within N days (default: 14)
+- `--limit N` — max results per run (default + cap: 50)
+- `--remote-only` — keep only listings that look remote
+- `--dry-run` — call Adzuna once, print what would be saved, don't write
+- `--match` — run `match.py` after saving
+
+**Coverage gap**: Adzuna does not cover China mainland. For CN roles, use `tailor.py` directly with pasted URLs (Layer 4 will add Greenhouse/Lever public boards later).
 
 ---
 
@@ -217,7 +258,7 @@ pip install pytest
 pytest tests/
 ```
 
-92 tests covering HTML parsing, URL fetching, LaTeX fence stripping, diff generation, LLM routing, and JD match scoring.
+147 tests covering HTML parsing, URL fetching, LaTeX fence stripping, diff generation, LLM routing, JD match scoring, secrets loading, and Adzuna client + dedup.
 
 ---
 

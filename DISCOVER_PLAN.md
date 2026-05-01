@@ -1,10 +1,33 @@
-# Plan: Resume → Job Discovery (Layer 2, Adzuna)
+# Plan: Resume → Job Discovery (Layer 2, Adzuna) — DONE 2026-05-01
 
 Active discovery: given a base resume, pull fresh JDs from public APIs and
 drop them into `jds/` so `match.py` can rank them.
 
 This is **Layer 2** of the staged plan in `MATCH_PLAN.md`. Layer 1 (rank
 existing JDs) shipped on 2026-04-30 as `match.py`.
+
+**Status**: shipped as `discover.py` CLI on 2026-05-01.
+
+## Built as planned
+
+All 5 core decisions implemented as designed (titles-not-skills, config
++ CLI override for location, 50/14 defaults, filename dedup, header+body
+JD format).
+
+## Bugs found during smoke + fixed in same layer
+
+1. **`null` in `titles` JSON list crashed parser** — same `str(None) ==
+   "None"` trap as `match.py` had. Fixed with explicit `is not None` guard.
+2. **Adzuna 18-way duplicate posts** — SimVentions returned 18 identical
+   "Schedule Analyst" rows under different `id`s. Filename-based dedup
+   missed them. Added in-batch `(company, title)` dedup; saw it collapse
+   18 → 1 in real run.
+3. **`--days < 1` silently passed to API** — added CLI guard.
+4. **Salary `$82,839-$82,839`** — Adzuna returns identical min/max for
+   fixed-salary listings; collapsed to single value.
+5. **Subprocess output ordering** — stdout block-buffered when piped, so
+   `match.py` subprocess output appeared before discover's; flush before
+   `subprocess.run`.
 
 ---
 
