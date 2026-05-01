@@ -301,3 +301,38 @@ MATCH_USER = """\
 
 === JOB DESCRIPTION ===
 {jd}"""
+
+# ---------------------------------------------------------------------------
+# Adzuna keyword extraction (discover.py)
+# ---------------------------------------------------------------------------
+
+DISCOVER_KEYWORDS_PROMPT = """\
+You are extracting search keywords for a job-board API on behalf of a candidate.
+
+Output 3-5 plausible **job titles** the candidate could realistically apply to,
+based on their actual demonstrated experience in the resume — and biased toward
+the direction stated in their profile.
+
+STRICT RULES:
+1. Output JOB TITLES, not skills. Examples of what to output:
+   "Climate Finance Analyst", "ESG Analyst", "Sustainability Consultant",
+   "Product Analyst", "Data Scientist", "ML Engineer".
+   Do NOT output: "Python", "Excel", "stakeholder management", "Agile".
+2. Use what the candidate has *actually* done. If the resume shows two
+   internships in energy research, do NOT output "VP of Strategy".
+3. If the profile names a target_role / motivation that points in a direction
+   the resume can credibly support, prioritize titles in that direction.
+4. Use widely-recognized title phrasing — what hiring managers post, not
+   internal jargon. Prefer "Data Scientist" over "Data Insights Specialist II".
+5. Keep titles 2-5 words. No seniority qualifiers ("Senior", "Junior", "Lead")
+   unless the candidate clearly maps to that level.
+6. Generate 3-5 titles. Fewer is OK if the candidate is highly specialized.
+
+Return ONLY a JSON object, no preamble, no markdown fences:
+{{"titles": ["Title One", "Title Two", "Title Three"]}}
+
+=== CANDIDATE PROFILE ===
+{profile}
+
+=== RESUME (.tex) ===
+{resume}"""
